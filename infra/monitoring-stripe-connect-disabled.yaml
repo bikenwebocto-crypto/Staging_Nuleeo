@@ -1,0 +1,88 @@
+# Cloud Monitoring alert policy: page when our PLATFORM Stripe Connect
+# account flips chargesEnabled=false. Without this, we'd find out from
+# the first tenant whose checkout 503s — minutes-to-hours of broken rent
+# collection vs the second the Stripe event lands.
+#
+# STATUS: fully deployed + armed, VERIFIED 2026-07-06 (as project owner):
+#   - metric `stripe_connect_charges_disabled` exists with the filter below;
+#   - policy "Stripe platform Connect account disabled" is ENABLED;
+#   - notification channel 6264040661698284334 (email, "Olio alerts") exists.
+#
+# How it works:
+#   1. The Stripe webhook handler (server/routes/stripeWebhook.ts) logs a
+#      structured line `[stripe.platform-disabled]` when account.updated
+#      arrives with chargesEnabled=false on our PLATFORM account (not
+#      an owner's Connect account).
+#   2. A log-based counter metric `stripe_connect_charges_disabled` increments
+#      on each such log.
+#   3. The policy below fires on any non-zero value over 1 minute and
+#      pages the configured notification channel.
+#
+# === Prerequisite metric — ALREADY CREATED (verified 2026-07-06) ===
+#
+# Deployed filter (correct — the `api` function is Cloud Functions 2nd gen, so
+# its logs land under resource.type="cloud_run_revision", NOT "cloud_function"):
+#
+#   resource.type="cloud_run_revision"
+#     AND resource.labels.service_name="api"
+#     AND severity>=WARNING
+#     AND jsonPayload.event="stripe.platform-disabled"
+#
+# To (re)create it from scratch, or after an event-id change:
+#
+#   gcloud logging metrics create stripe_connect_charges_disabled \
+#     --project=olio-wallet \
+#     --description="Olio platform Connect account chargesEnabled went false" \
+#     --log-filter='resource.type="cloud_run_revision"
+#       AND resource.labels.service_name="api"
+#       AND severity>=WARNING
+#       AND jsonPayload.event="stripe.platform-disabled"'
+#
+# Re-verify anytime (needs Logs Config Viewer / project owner — the day-to-day
+# gcloud account may be under-privileged; use oliowallet@gmail.com):
+#   gcloud logging metrics describe stripe_connect_charges_disabled \
+#     --project=olio-wallet --format='value(filter)'
+#
+# The event id (`stripe.platform-disabled`) is stable; the matching code lives
+# in server/routes/stripeWebhook.ts. Don't rename it without updating the metric.
+#
+# === Notification channel (verified 2026-07-06) ===
+#
+# Pages projects/olio-wallet/notificationChannels/6264040661698284334
+# (email, "Olio alerts"). To page a different/additional channel, create it via
+# `gcloud alpha monitoring channels create ...` and substitute below.
+
+displayName: "Stripe platform Connect account disabled"
+combiner: OR
+enabled: true
+documentation:
+  content: |
+    The Olio platform Stripe Connect account just flipped chargesEnabled=false.
+
+    Until this is resolved, every tenant rent-checkout will return 5xx because
+    Stripe rejects new charges. Owner payouts continue from existing balances
+    but no new money flows in.
+
+    First actions:
+      1. Open https://dashboard.stripe.com/account/status
+      2. Resolve any compliance/verification requirements Stripe is asking for
+      3. Once Stripe re-enables the account they'll send account.updated
+         and our mirror flips back to chargesEnabled=true
+  mimeType: text/markdown
+conditions:
+  - displayName: "platform Connect disabled in last 1m"
+    conditionThreshold:
+      # Matches the deployed policy. The metric already scopes to the api
+      # cloud_run_revision, so we pin the same resource.type here; COMPARISON_GT
+      # 0 over 60s fires if any series breaches.
+      filter: 'metric.type="logging.googleapis.com/user/stripe_connect_charges_disabled" resource.type="cloud_run_revision"'
+      comparison: COMPARISON_GT
+      thresholdValue: 0
+      duration: 60s
+      aggregations:
+        - alignmentPeriod: 60s
+          perSeriesAligner: ALIGN_SUM
+alertStrategy:
+  autoClose: 1800s # auto-close after 30m of no further hits (Stripe re-enabled)
+notificationChannels:
+  - projects/olio-wallet/notificationChannels/6264040661698284334

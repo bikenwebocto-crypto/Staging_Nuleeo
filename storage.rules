@@ -1,0 +1,11 @@
+rules_version = '2';
+
+// Uploads and downloads are gated through server-issued signed URLs.
+// Direct client access is denied by default.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

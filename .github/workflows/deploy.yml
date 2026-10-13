@@ -1,0 +1,329 @@
+name: Deploy to Firebase
+
+# Fires after the CI workflow finishes on main. If typecheck/test/build
+# failed in CI, deploy is skipped — closes the gap where a push could
+# deploy code that didn't pass verification. workflow_dispatch is kept
+# for manual deploys (e.g., Firebase rules-only change with no code edit).
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-firebase
+  cancel-in-progress: false
+
+# Least privilege. `contents: read` lets the job check out the code; `id-token:
+# write` lets it mint the short-lived OIDC token that Workload Identity
+# Federation exchanges for GCP access (no long-lived SA key) — see the auth step.
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    # workflow_dispatch path has no workflow_run context, so we let it
+    # through unconditionally. The workflow_run path only proceeds when
+    # CI succeeded on main — so a failed CI run cannot trigger a deploy.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    environment: production
+    # Hard upper bound — without this, a hung deploy under the
+    # `cancel-in-progress: false` concurrency rule would queue every
+    # subsequent push behind it indefinitely.
+    timeout-minutes: 25
+    steps:
+      # All third-party actions below are pinned to a full 40-char SHA,
+      # not a floating tag. The 2026-05-26 outage was a GitHub Codeload
+      # 404 on the SHA `google-github-actions/auth@v2` resolved to —
+      # tags get re-pointed, SHAs are immutable and served from a
+      # different storage path. When bumping, update the version
+      # comment above the pin so future readers know what they're on.
+
+      # actions/checkout@v6 — Node 24 native
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          # On a workflow_run trigger, GITHUB_SHA points to the default
+          # branch tip rather than the commit CI verified. Pin to the
+          # exact SHA CI checked so we deploy what was actually tested.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      # actions/setup-node@v6 — Node 24 native
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          # Matches functions/package.json engines.node + firebase.json
+          # functions runtime so the build runs on the same major
+          # version as the deployed Cloud Function.
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Typecheck + tests ran in the CI workflow that triggered this run;
+      # we trust that gate. Only the build (which produces the deployed
+      # artifact) runs here.
+      - name: Build all subdomains + server
+        run: npm run build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
+          # Public OneSignal App ID — without it the build strips out all web-push
+          # code (APP_ID is falsy → dead-code-eliminated) and push shows UNSUPPORTED
+          # in every browser. Set as a production environment secret.
+          VITE_ONESIGNAL_APP_ID: ${{ secrets.VITE_ONESIGNAL_APP_ID }}
+
+      # Upload the hidden sourcemaps as a PRIVATE build artifact so a minified
+      # client.error stack from Cloud Logging can be de-minified later (see
+      # script/symbolicate.ts). These maps are NOT deployed to Hosting:
+      # Vite's sourcemap:"hidden" drops the //# sourceMappingURL comment, and
+      # firebase.json's hosting `ignore` excludes **/*.map — so source is never
+      # exposed publicly. Artifacts inherit the repo's (private) visibility.
+      # if-no-files-found:error makes this fail loudly if a future change turns
+      # sourcemaps off, rather than silently shipping un-debuggable stacks.
+      # actions/upload-artifact@v4.6.2
+      - name: Upload client sourcemaps (private)
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: sourcemaps-${{ github.event.workflow_run.head_sha || github.sha }}
+          path: |
+            dist/app/assets/*.js.map
+            dist/platform/assets/*.js.map
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Install Functions dependencies
+        run: npm ci
+        working-directory: functions
+
+      # Manual-deploy verification gate. The workflow_run path is only
+      # reached when CI already went green on this exact SHA (see job-level
+      # `if`), so we trust that gate and these steps are skipped there.
+      # A workflow_dispatch deploy, by contrast, has NO upstream CI gate —
+      # someone could manually deploy a SHA that never passed typecheck or
+      # tests. Re-run the same verification CI does (check + test) with the
+      # identical Firebase env stub so a broken manual deploy fails here
+      # instead of shipping. Root + functions deps are already installed
+      # above, so these reuse them.
+      - name: Verify (manual deploy) — typecheck
+        if: github.event_name == 'workflow_dispatch'
+        run: npm run check
+
+      - name: Verify (manual deploy) — tests
+        if: github.event_name == 'workflow_dispatch'
+        # Same dummy Firebase values as ci.yml: queryClient.ts imports
+        # firebase/auth at module load and the SDK rejects an empty apiKey
+        # with auth/invalid-api-key. No test authenticates — they just need
+        # Firebase init to not throw.
+        run: npm test
+        env:
+          VITE_FIREBASE_API_KEY: ci-test-stub-key
+          VITE_FIREBASE_AUTH_DOMAIN: ci-test.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: ci-test
+          VITE_FIREBASE_STORAGE_BUCKET: ci-test.appspot.com
+          VITE_FIREBASE_MESSAGING_SENDER_ID: "0"
+          VITE_FIREBASE_APP_ID: ci-test-app-id
+          VITE_FIREBASE_MEASUREMENT_ID: G-CITEST
+
+      - name: Build Functions
+        run: npm run build
+        working-directory: functions
+
+      # google-github-actions/auth@v3 — Node 24 native. Authenticates via
+      # Workload Identity Federation: GitHub mints a short-lived OIDC token (the
+      # job holds `id-token: write` above), GCP's STS swaps it for credentials on
+      # the deploy service account — NO long-lived SA key in GitHub Secrets. The
+      # action exports GOOGLE_APPLICATION_CREDENTIALS, which firebase-tools reads
+      # downstream.
+      #
+      # One-time setup that made this work (run once in gcloud / Cloud Shell as a
+      # project owner; the deploy account is firebase-adminsdk-fbsvc@…):
+      #   gcloud iam workload-identity-pools create github-actions \
+      #     --project=olio-wallet --location=global --display-name="GitHub Actions"
+      #   gcloud iam workload-identity-pools providers create-oidc github \
+      #     --project=olio-wallet --location=global \
+      #     --workload-identity-pool=github-actions --display-name="GitHub" \
+      #     --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.ref=assertion.ref" \
+      #     --attribute-condition="assertion.repository=='oliowallet/olio-fe' && assertion.ref=='refs/heads/main'" \
+      #     --issuer-uri="https://token.actions.githubusercontent.com"
+      #   gcloud iam service-accounts add-iam-policy-binding \
+      #     firebase-adminsdk-fbsvc@olio-wallet.iam.gserviceaccount.com \
+      #     --project=olio-wallet --role="roles/iam.workloadIdentityUser" \
+      #     --member="principalSet://iam.googleapis.com/projects/616442647680/locations/global/workloadIdentityPools/github-actions/attribute.repository/oliowallet/olio-fe"
+      # After the first green WIF deploy, delete the now-unused
+      # FIREBASE_SERVICE_ACCOUNT secret from the repo.
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: projects/616442647680/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: firebase-adminsdk-fbsvc@olio-wallet.iam.gserviceaccount.com
+
+      # Drop the firebase CLI auth + deploy to Node 20. firebase-tools pins
+      # google-auth-library@^9 (9.15.1), which uses node-fetch; a ~2026-06-24
+      # Node 22.x patch (22.23.0) made that path fail the WIF STS exchange with
+      # "Invalid response body ... https://sts.googleapis.com/v1/token: Premature
+      # close" → "Failed to authenticate". gcloud (modern undici) federates the
+      # SAME creds fine, and Node 20 is unaffected (verified end-to-end). The
+      # build + functions compile ABOVE intentionally run on Node 22 to match the
+      # nodejs22 Cloud Functions runtime; only the CLI from here down needs 20.
+      # PINNED EXACT (not "20") deliberately: this whole incident was a FLOATING
+      # version — setup-node "22" silently auto-bumped to the broken 22.23.0. An
+      # exact pin makes the deploy deterministic so a runner Node auto-update can
+      # never break prod again. Revert to a single Node 22 setup once firebase-
+      # tools moves off node-fetch (still google-auth-library ^9 as of 15.22.2);
+      # bump this patch deliberately, never let it float.
+      # actions/setup-node@v6 — Node 24 native
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: "20.20.2"
+
+      # Replaces the previous w9jds/firebase-action wrapper — single-
+      # maintainer Docker image, several patch versions stale, and
+      # redundant now that we already authenticate via the official
+      # google-github-actions/auth. firebase-tools reads
+      # GOOGLE_APPLICATION_CREDENTIALS natively. Pinned EXACT (14.27.0 — the
+      # build the first green Node-20 deploy ran on) rather than a range, so the
+      # deploy toolchain is fully reproducible and can't float into a regression.
+      # Bump deliberately, in lockstep with the Node pin above.
+      # `timeout` caps each attempt + retry up to 3×: this global install is
+      # large and npm has hung mid-fetch on the runner — a 2026-06-17 deploy
+      # wedged here for ~24min and hit the job's 25min timeout (cancelled,
+      # never shipped). 3 × 5min stays well under timeout-minutes: 25 and leaves
+      # room for the deploy + smoke test. A hung attempt is killed and retried.
+      - name: Install Firebase CLI
+        run: |
+          for attempt in 1 2 3; do
+            if timeout 300 npm install -g firebase-tools@14.27.0; then
+              exit 0
+            fi
+            echo "::warning::firebase-tools install attempt $attempt timed out or failed — retrying"
+          done
+          echo "::error::firebase-tools install failed after 3 attempts"
+          exit 1
+
+      # Manual deploys ship firestore.rules but otherwise skip CI's emulator-
+      # backed rules suite — it lives in a SEPARATE CI job (firestore-rules) and
+      # the dispatch path's `npm test` excludes tests/firestore-rules. So a
+      # manual / rollback deploy could push an unverified rules regression to the
+      # database holding leases, rent ledgers, IBANs and tenant PII — exactly
+      # when a hurried operator is most likely to. Re-run the rules gate here on
+      # the dispatch path (firebase CLI + Java are now available) before deploy.
+      - name: Verify (manual deploy) — firestore rules
+        if: github.event_name == 'workflow_dispatch'
+        run: npm run test:rules
+
+      # Retry wrapper around the atomic deploy. The Firebase Rules API has
+      # intermittently 503'd mid-deploy (hit on 2026-05-26), which aborts an
+      # otherwise-valid deploy with a transient error. Re-running the exact
+      # same command usually succeeds, so attempt up to 3 times with a ~20s
+      # backoff between tries; the step only fails if all three attempts do.
+      # The deploy command + flags are byte-for-byte identical to before —
+      # firebase deploy is idempotent (re-uploads + re-points), so a retry
+      # after a partial failure is safe.
+      - name: Deploy Hosting + Functions + Rules
+        run: |
+          set -o pipefail
+          attempt=1
+          max=3
+          # --force: the `api` function sets minInstances:1 (always-on, an
+          # approved recurring cost), which raises the minimum monthly bill.
+          # Firebase refuses a min-bill increase in --non-interactive mode
+          # ("Pass the --force option to deploy functions that increase the
+          # minimum bill") unless --force is given. --force also deletes any
+          # deployed function that is absent from source — fine here, source
+          # is the single source of truth for the functions set.
+          until firebase deploy --only hosting,functions,firestore,storage --project olio-wallet --non-interactive --force; do
+            if [ "$attempt" -ge "$max" ]; then
+              echo "::error::firebase deploy failed after $max attempts"
+              exit 1
+            fi
+            echo "::warning::firebase deploy attempt $attempt failed (likely transient, e.g. Rules API 503) — retrying in 20s"
+            attempt=$((attempt + 1))
+            sleep 20
+          done
+
+      # Post-deploy smoke test. A green `firebase deploy` only proves the
+      # upload succeeded — it doesn't prove the live site actually serves.
+      # Hit the three hosting roots plus the public API liveness probe
+      # (/api/health/firebase is rewritten to the `api` function from the
+      # app + platform sites — see firebase.json) and fail the job if any
+      # stays down. Each target is retried (CDN propagation + cold-start can
+      # briefly 5xx/404 right after a deploy), so only a *persistent*
+      # non-2xx fails; a single flaky curl never does. A failure here leaves
+      # the Notify Discord step (if: always()) to report it.
+      - name: Smoke test
+        run: |
+          set -u
+          # Hosting roots accept any 2xx OR 3xx (SPA index / redirects);
+          # the API probe must return a 2xx. Format: "URL|regex-of-ok-codes".
+          # Regexes must NOT contain '|' — it is the field delimiter below.
+          # Use a char class [23] for "2xx or 3xx" instead of (2..|3..).
+          targets=(
+            "https://oliowallet.com|^[23]..$"
+            "https://app.oliowallet.com|^[23]..$"
+            "https://platform.oliowallet.com|^[23]..$"
+            "https://app.oliowallet.com/api/health/firebase|^2..$"
+          )
+          failed=0
+          for entry in "${targets[@]}"; do
+            url="${entry%%|*}"
+            ok_re="${entry#*|}"
+            tries=5
+            i=1
+            up=0
+            while [ "$i" -le "$tries" ]; do
+              # -L follow redirects? No — we want to see hosting's own 3xx,
+              # so don't follow. --max-time bounds a hung connection.
+              code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$url" || echo "000")
+              if printf '%s' "$code" | grep -Eq "$ok_re"; then
+                echo "OK   $url -> $code (attempt $i)"
+                up=1
+                break
+              fi
+              echo "::warning::smoke check $url -> $code (attempt $i/$tries) — retrying in 10s"
+              i=$((i + 1))
+              sleep 10
+            done
+            if [ "$up" -ne 1 ]; then
+              echo "::error::smoke test failed for $url (last code: $code)"
+              failed=1
+            fi
+          done
+          [ "$failed" -eq 0 ] || exit 1
+
+      # Posts the deploy result to Discord. This job only runs when CI
+      # passed (job-level `if` above), so a CI failure already pinged
+      # "build failed" and is never double-reported here. `if: always()`
+      # ensures a failed firebase deploy still pings. Same env-not-inline
+      # + jq pattern as CI to keep commit messages injection-safe.
+      - name: Notify Discord
+        if: always()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          JOB_STATUS: ${{ job.status }}
+          COMMIT_MSG: ${{ github.event.workflow_run.head_commit.message }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [ -z "$DISCORD_WEBHOOK" ] && exit 0
+          [ "$JOB_STATUS" = "cancelled" ] && exit 0
+          if [ "$JOB_STATUS" = "success" ]; then
+            STATUS="deploy success"; COLOR=3066993
+          else
+            STATUS="deploy failed"; COLOR=15158332
+          fi
+          jq -n --arg t "[olio-fe] $STATUS on main" \
+                --arg u "$RUN_URL" \
+                --arg d "$COMMIT_MSG" \
+                --argjson c "$COLOR" \
+                '{embeds:[{title:$t,url:$u,description:($d[0:200]),color:$c}]}' \
+          | curl -s -H "Content-Type: application/json" -d @- "$DISCORD_WEBHOOK" \
+          || echo "::warning::Discord notification failed"

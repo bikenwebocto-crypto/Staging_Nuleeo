@@ -1,0 +1,49 @@
+# Cloud Monitoring alert policy: page when the SPAs report a spike of client
+# (browser) crashes. The app + platform front-ends POST uncaught errors to
+# POST /api/client-errors (React ErrorBoundary + window error/unhandledrejection
+# — see client/shared/lib/reportClientError.ts), which the server logs as
+# `client.error` at WARNING. A spike usually means a bad frontend deploy
+# white-screening real users — previously invisible (errors died in the browser
+# console).
+#
+# === Prerequisite metric — create once ===
+#
+#   gcloud logging metrics create client_errors \
+#     --description="Browser crashes reported by the Olio SPAs" \
+#     --log-filter='resource.type="cloud_function"
+#       AND resource.labels.function_name="api"
+#       AND jsonPayload.event="client.error"'
+#
+# (Swap resource.type to cloud_run_revision / service_name="api" if your logs
+# surface there — see monitoring-api-error-rate.yaml.)
+#
+# === Notification channel === same as the other policies.
+
+displayName: "Olio SPA — client error spike"
+combiner: OR
+enabled: true
+documentation:
+  content: |
+    The app/platform front-end is reporting browser crashes above the normal
+    rate (event=client.error). Often a bad frontend deploy.
+
+    First actions:
+      1. Cloud Logging: jsonPayload.event="client.error", last 30m — group by
+         jsonPayload.app + jsonPayload.path + jsonPayload.message.
+      2. If it started right after a deploy, roll back the affected hosting site
+         (infra/README.md -> Rollback -> Hosting).
+  mimeType: text/markdown
+conditions:
+  - displayName: "client.error reports > 10 in 5m"
+    conditionThreshold:
+      filter: 'metric.type="logging.googleapis.com/user/client_errors" resource.type="cloud_run_revision"'
+      comparison: COMPARISON_GT
+      thresholdValue: 10
+      duration: 0s
+      aggregations:
+        - alignmentPeriod: 300s
+          perSeriesAligner: ALIGN_SUM
+alertStrategy:
+  autoClose: 1800s
+notificationChannels:
+  - projects/olio-wallet/notificationChannels/6264040661698284334

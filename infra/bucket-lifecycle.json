@@ -1,0 +1,13 @@
+{
+  "lifecycle": {
+    "rule": [
+      {
+        "comment": "Soft-delete recovery window. GCS 'soft-deleted' state keeps objects retrievable after delete() for the configured window. 7 days is enough to recover from an accidental cascade-delete in production, without paying long-term storage for trash. This is the ONLY blanket rule — see the design note below for why we removed the age-based prefix rules.",
+        "action": { "type": "Delete" },
+        "condition": {
+          "daysSinceSoftDeleteTime": 7
+        }
+      }
+    ]
+  }
+}

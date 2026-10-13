@@ -1,0 +1,154 @@
+name: Uptime check
+
+# EXTERNAL uptime watchdog for production. Deliberately independent of any
+# Google Cloud auth: the motivating incident (2026-07-14) was the entire GCP
+# project being suspended, which killed the in-project Cloud Monitoring
+# alerts along with the sites they were supposed to watch. This workflow
+# only talks to public HTTPS endpoints and the GitHub API, so it keeps
+# working even when the GCP project itself is unreachable.
+#
+# Probes (each of the 4 app endpoints tolerates transient blips via 3
+# attempts, 10s apart, before counting as down):
+#   - https://oliowallet.com                              -> HTTP 200
+#   - https://app.oliowallet.com                           -> HTTP 200
+#   - https://platform.oliowallet.com                      -> HTTP 200
+#   - https://app.oliowallet.com/api/health/firebase       -> HTTP 200 + "ok":true
+# Plus one direct signature check against the Firestore REST API itself
+# (no GCP auth): an anonymous read is EXPECTED to come back 403
+# PERMISSION_DENIED when everything is healthy (security rules deny it).
+# It only counts as a failure if the response body contains
+# "CONSUMER_SUSPENDED" — the exact string Google returns when the whole
+# GCP project has been suspended, which is the signature of the incident
+# this workflow exists to catch.
+#
+# Discord is only pinged on a DOWN<->UP transition (compares against the
+# previous completed run's conclusion), not on every failing run, so an
+# ongoing outage doesn't spam the channel every 15 minutes.
+
+on:
+  schedule:
+    # GitHub's cron scheduler is best-effort and can lag several minutes
+    # under load — fine for a watchdog, not fine for anything needing a
+    # precise interval.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: uptime-check
+  cancel-in-progress: false
+
+# Least privilege: no checkout, no third-party actions (nothing to pin), no
+# GCP auth. `actions: read` is only so the script can look up the previous
+# run's conclusion via the GitHub API.
+permissions:
+  actions: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    # Required so secrets.DISCORD_WEBHOOK resolves — it's a PRODUCTION
+    # ENVIRONMENT secret, invisible to jobs that don't declare the
+    # environment (same pattern as backup-check.yml / deploy.yml).
+    environment: production
+    timeout-minutes: 8
+    steps:
+      - name: Probe production endpoints
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -uo pipefail
+
+          FAIL=0
+          STATUS_LINES=()
+          BODY_FILE="$(mktemp)"
+
+          # Probes a URL up to 3 times, 10s apart, treating it as UP the
+          # moment any attempt matches (HTTP 200, and — if given — a body
+          # substring). Only counts as FAIL if all 3 attempts miss.
+          check_http() {
+            local name="$1" url="$2" expect_body="${3:-}"
+            local attempt code body ok=0
+            for attempt in 1 2 3; do
+              code=$(curl -s -o "$BODY_FILE" -w '%{http_code}' --max-time 10 "$url" || echo "000")
+              body=$(cat "$BODY_FILE" 2>/dev/null || echo "")
+              if [ "$code" = "200" ] && { [ -z "$expect_body" ] || printf '%s' "$body" | grep -q -- "$expect_body"; }; then
+                ok=1
+                break
+              fi
+              echo "  [$name] attempt $attempt/3: HTTP $code"
+              if [ "$attempt" -lt 3 ]; then
+                sleep 10
+              fi
+            done
+            if [ "$ok" = "1" ]; then
+              STATUS_LINES+=("OK   $name")
+            else
+              STATUS_LINES+=("FAIL $name (last HTTP $code)")
+              FAIL=1
+            fi
+          }
+
+          check_http "oliowallet.com" "https://oliowallet.com"
+          check_http "app.oliowallet.com" "https://app.oliowallet.com"
+          check_http "platform.oliowallet.com" "https://platform.oliowallet.com"
+          check_http "app.oliowallet.com/api/health/firebase" "https://app.oliowallet.com/api/health/firebase" '"ok":true'
+
+          # Direct GCP-suspension signature check (no auth, no retries — a
+          # transient network blip here just means "no signal", not "GCP
+          # suspended", so it correctly falls through to OK rather than
+          # needing retry tolerance).
+          FS_URL="https://firestore.googleapis.com/v1/projects/olio-wallet/databases/(default)/documents/probe/probe"
+          fs_body=$(curl -s --max-time 10 "$FS_URL" || echo "")
+          if printf '%s' "$fs_body" | grep -q "CONSUMER_SUSPENDED"; then
+            STATUS_LINES+=("FAIL firestore.googleapis.com (CONSUMER_SUSPENDED detected — GCP project suspended)")
+            FAIL=1
+          else
+            STATUS_LINES+=("OK   firestore.googleapis.com (not suspended)")
+          fi
+
+          SUMMARY=$(printf '%s\n' "${STATUS_LINES[@]}")
+          echo "$SUMMARY"
+
+          # Previous completed run's conclusion is the state this run's
+          # result gets compared against. First-ever run (no prior runs) is
+          # treated as "success" so an already-healthy site doesn't fire a
+          # spurious DOWN alert on workflow creation. On any error, `gh api`
+          # still writes its raw error body to stdout before exiting
+          # non-zero (it doesn't apply --jq to error responses), so the
+          # exit code — not just emptiness — must gate the fallback, or a
+          # 404/rate-limit body gets mistaken for a conclusion string.
+          PREV_CONCLUSION=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/uptime-check.yml/runs?status=completed&per_page=1" --jq '.workflow_runs[0].conclusion' 2>/dev/null)
+          gh_exit=$?
+          if [ "$gh_exit" -ne 0 ] || [ -z "$PREV_CONCLUSION" ] || [ "$PREV_CONCLUSION" = "null" ]; then
+            PREV_CONCLUSION="success"
+          fi
+          echo "Previous run conclusion: $PREV_CONCLUSION"
+
+          if [ -n "${DISCORD_WEBHOOK:-}" ]; then
+            if [ "$FAIL" = "1" ] && [ "$PREV_CONCLUSION" = "success" ]; then
+              jq -n --arg t "[olio-fe] 🔴 Production DOWN" \
+                    --arg u "$RUN_URL" \
+                    --arg d "$SUMMARY" \
+                    '{embeds:[{title:$t,url:$u,description:$d,color:15158332}]}' \
+              | curl -s -H "Content-Type: application/json" -d @- "$DISCORD_WEBHOOK" \
+              || echo "::warning::Discord notification failed"
+            elif [ "$FAIL" = "0" ] && [ "$PREV_CONCLUSION" = "failure" ]; then
+              jq -n --arg t "[olio-fe] 🟢 Production RECOVERED" \
+                    --arg u "$RUN_URL" \
+                    --arg d "$SUMMARY" \
+                    '{embeds:[{title:$t,url:$u,description:$d,color:3066993}]}' \
+              | curl -s -H "Content-Type: application/json" -d @- "$DISCORD_WEBHOOK" \
+              || echo "::warning::Discord notification failed"
+            fi
+          fi
+
+          # Exit non-zero when failing. This is NOT dead weight: the run
+          # conclusion produced by this exit code (success/failure) is
+          # exactly what the NEXT run reads back above to detect the
+          # DOWN->UP / UP->DOWN transition. Making this always exit 0 would
+          # silently break alerting on both directions.
+          if [ "$FAIL" = "1" ]; then
+            exit 1
+          fi

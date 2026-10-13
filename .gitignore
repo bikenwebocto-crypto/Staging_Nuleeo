@@ -1,0 +1,22 @@
+node_modules
+dist
+functions/lib
+coverage
+.DS_Store
+server/public
+vite.config.ts.*
+*.tar.gz
+
+# Tooling local state
+.local/
+.firebase/
+skills-lock.json
+firebase-debug.log
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+server/secrets/
+*-firebase-adminsdk-*.json
+serviceAccountKey.json

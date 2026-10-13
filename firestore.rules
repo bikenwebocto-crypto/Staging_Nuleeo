@@ -1,0 +1,127 @@
+rules_version = '2';
+
+// All app reads and writes go through the Express API, which uses the
+// Firebase Admin SDK and bypasses these rules. Client-side Firestore
+// access is denied by default — except for the collections owned by the
+// Stripe Payments extension, which require direct client reads to power
+// the checkout / billing portal flows.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Stripe Payments extension — customers/{uid} mirrors the Stripe customer.
+    // Owner can read their own doc; the checkout_sessions subcollection is
+    // read+write so the client can kick off a Stripe Checkout flow.
+    match /customers/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      match /checkout_sessions/{id} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+      match /subscriptions/{id} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+      }
+      match /payments/{id} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    // Public product + price catalog — synced from Stripe by the extension.
+    // Anyone (including signed-out visitors on landing) can render plan tiers.
+    match /products/{id} {
+      allow read: if true;
+
+      match /prices/{id} {
+        allow read: if true;
+      }
+
+      match /tax_rates/{id} {
+        allow read: if true;
+      }
+    }
+
+    // Role privilege matrix — read by ALL signed-in users so the client can
+    // drive realtime UI gates via onSnapshot. This streams the full matrix
+    // (including the admin/platform sub-matrix) to every signed-in user, but
+    // the payload is abstract role→privilege booleans with no PII, and the
+    // client matrix is UI-only: the Express API independently enforces the
+    // real authZ on every request, so a user reading it gains nothing.
+    // Writes happen through the Express PUT /api/privileges-config endpoint
+    // (superadmin-only).
+    match /config/privileges {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Compliance documents (Terms, Privacy, GDPR, Owner Terms). Public read
+    // because the legal pages are linked from signup checkboxes and the
+    // Google OAuth consent screen — visitors must be able to view them
+    // before signing in. Writes go through the Express PUT /api/compliance
+    // endpoint (admin-only).
+    match /config/compliance {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Social-media link table. Public read so the landing footer can render
+    // social icons without auth; the app sidebar also subscribes here for
+    // realtime sync. Writes go through PUT /api/social (admin-only).
+    match /config/social {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // SuperAdminDashboard banner carousel selection. Read by any signed-in
+    // user — the payload is non-sensitive image paths (the banner assets are
+    // public anyway), so we only require authentication rather than an admin
+    // platformRole (which rules can't easily evaluate here). Writes go
+    // through PUT /api/admin/banners (admin-only).
+    match /config/banners {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // System flags (currently: maintenance mode). Public read so the app
+    // shell can subscribe via onSnapshot and lock the UI without a server
+    // round-trip — also lets the lock kick in for users who lose API
+    // connectivity. Writes go through PUT /api/system-config (superadmin).
+    match /config/system {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Owner-plan display names + descriptions + unit caps. Public read so
+    // the landing pricing section can render plan names without auth, and
+    // the in-app PricingModal can subscribe via onSnapshot for realtime
+    // sync. Writes go through PUT /api/admin/plan-labels (admin-only).
+    match /config/planLabels {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Owner ↔ tenant message threads. Participants (and only participants)
+    // can read the conversation doc and stream its messages subcollection
+    // — that's what unlocks future real-time chat via onSnapshot. Writes
+    // always go through the Express endpoints (Admin SDK bypasses rules),
+    // so no client write is permitted here.
+    match /conversations/{conversationId} {
+      allow read: if request.auth != null &&
+        (resource.data.ownerId == request.auth.uid ||
+         resource.data.tenantUserId == request.auth.uid);
+      allow write: if false;
+
+      match /messages/{messageId} {
+        // The message doc doesn't carry the participants — they're on the
+        // parent conversation doc, so we look that up to authorize.
+        allow read: if request.auth != null &&
+          (get(/databases/$(database)/documents/conversations/$(conversationId)).data.ownerId == request.auth.uid ||
+           get(/databases/$(database)/documents/conversations/$(conversationId)).data.tenantUserId == request.auth.uid);
+        allow write: if false;
+      }
+    }
+
+    // Everything else: server-only via Admin SDK.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

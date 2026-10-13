@@ -1,0 +1,51 @@
+# Dependabot keeps dependencies patched by opening update PRs on a weekly
+# cadence. We cover both npm trees (the root app and the Cloud Functions in
+# /functions, which has its own package.json/lockfile) plus the GitHub Actions
+# pinned in our workflows. Minor + patch bumps are grouped into a single PR per
+# ecosystem to cut review noise; majors (potentially breaking) still arrive as
+# their own PRs so they can be vetted individually.
+version: 2
+updates:
+  # Root npm tree (client + server app)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # Pinned to 3.4.5 in package.json. dompurify 3.4.11 sanitizes INCORRECTLY
+      # under happy-dom 20.10.x in the Vitest env (fails to strip <script>/<iframe>,
+      # mangles markup) — works fine in real browsers, so production is unaffected,
+      # but it reddens the test suite. Re-evaluate (and remove this ignore) once the
+      # happy-dom/dompurify incompatibility is resolved upstream. See
+      # client/shared/lib/sanitizeHtml.ts.
+      - dependency-name: "dompurify"
+
+  # Cloud Functions npm tree (separate package.json + lockfile)
+  - package-ecosystem: "npm"
+    directory: "/functions"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions pinned in .github/workflows (ci.yml / deploy.yml)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"

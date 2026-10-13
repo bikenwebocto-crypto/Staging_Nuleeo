@@ -1,0 +1,77 @@
+name: Firestore backup check
+
+# Scheduled health-check for the Firestore data-protection set (PITR + daily/
+# weekly backup schedules + a fresh backup). infra/verify-firestore-backups.sh
+# was written to "double as a cron healthcheck" but was never actually wired to
+# run — so a silently-deleted schedule, disabled PITR, or backups that quietly
+# stopped (a quota / permission / location change) would only surface the moment
+# a restore was needed. This runs it daily and pings Discord on failure.
+#
+# Read-only: the script only does gcloud `describe` / `list` — it never creates,
+# deletes, or mutates anything.
+
+on:
+  schedule:
+    # 06:30 UTC daily — after the daily managed backup (which the verifier
+    # expects to be < 26h old) has had time to land.
+    - cron: "30 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: backup-check
+  cancel-in-progress: false
+
+# Least privilege: reads the checked-out script; authenticates to GCP via the
+# service-account key, not the GITHUB_TOKEN.
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    # Required so secrets.FIREBASE_SERVICE_ACCOUNT resolves — it's a PRODUCTION
+    # ENVIRONMENT secret (same as the deploy job), invisible to jobs that don't
+    # declare the environment. Without this the auth step gets an empty key.
+    environment: production
+    timeout-minutes: 10
+    steps:
+      # Third-party actions are SHA-pinned (repo convention — see deploy.yml).
+      # actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+
+      # google-github-actions/auth@v3 — keyless via Workload Identity Federation
+      # (same provider + SA as the deploy job, so no long-lived key). The SA has
+      # Firestore read access; this job only reads. ubuntu-latest ships the gcloud
+      # CLI; we point it at the WIF external-account credential file the action
+      # writes (gcloud uses `auth login --cred-file`, NOT activate-service-account,
+      # which is key-only).
+      - id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: projects/616442647680/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: firebase-adminsdk-fbsvc@olio-wallet.iam.gserviceaccount.com
+
+      - name: Activate gcloud for WIF
+        run: gcloud auth login --cred-file="${{ steps.auth.outputs.credentials_file_path }}"
+
+      - name: Verify Firestore backups
+        run: bash infra/verify-firestore-backups.sh
+
+      # Ping Discord on ANY failure (the verifier exits non-zero if PITR is off,
+      # a schedule is missing, or the latest backup is stale) so a silent
+      # regression is actually surfaced. Reuses the deploy notifier's secret + jq
+      # pattern. No webhook configured → no-op.
+      - name: Notify Discord on failure
+        if: failure()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [ -z "$DISCORD_WEBHOOK" ] && exit 0
+          jq -n --arg t "[olio-fe] 🚨 Firestore backup check FAILED" \
+                --arg u "$RUN_URL" \
+                --arg d "PITR / backup-schedule / fresh-backup check failed. Investigate before relying on a restore: infra/README.md -> Disaster recovery." \
+                '{embeds:[{title:$t,url:$u,description:$d,color:15158332}]}' \
+          | curl -s -H "Content-Type: application/json" -d @- "$DISCORD_WEBHOOK" \
+          || echo "::warning::Discord notification failed"

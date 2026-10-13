@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Olio Platform</title>
+    <meta name="description" content="Olio admin platform." />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="theme-color" content="#171717" />
+
+    <!-- PWA: linking the manifest is what makes iOS "Add to Home Screen" use
+         the manifest's scope ("/") instead of falling back to legacy mode,
+         where iOS scopes the install to the path it was added from and opens
+         everything else in an in-app Safari overlay. -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Olio Platform" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

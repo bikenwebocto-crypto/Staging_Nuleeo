@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>Olio Wallet</title>
+    <meta
+      name="description"
+      content="Your real estate wallet. Manage properties, track rent, and grow your portfolio."
+    />
+    <meta name="theme-color" content="#171717" />
+    <!-- Logged-in product app — not for organic discovery. The marketing site at
+         oliowallet.com is the thing we want indexed for "olio wallet" searches. -->
+    <meta name="robots" content="noindex, nofollow" />
+
+    <!-- PWA: linking the manifest is what makes iOS "Add to Home Screen" use
+         the manifest's scope ("/") instead of falling back to legacy mode,
+         where iOS scopes the install to the path it was added from and opens
+         everything else in an in-app Safari overlay. -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Olio" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>
+      <p>Olio Wallet requires JavaScript. Please enable it to continue.</p>
+      <p>
+        <a href="/privacy">Privacy Policy</a> ·
+        <a href="/terms">Terms of Service</a>
+      </p>
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

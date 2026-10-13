@@ -1,0 +1,21 @@
+{
+  "projects": {
+    "default": "olio-wallet"
+  },
+  "targets": {
+    "olio-wallet": {
+      "hosting": {
+        "landing": [
+          "olio-wallet"
+        ],
+        "platform": [
+          "oliowallet-platform"
+        ],
+        "app": [
+          "oliowallet-app"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

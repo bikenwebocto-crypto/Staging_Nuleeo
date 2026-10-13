@@ -1,0 +1,411 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Tailwind v4 only auto-scans the importing app's root (e.g. client/app),
+   so classes used exclusively in sibling dirs (client/shared) get purged.
+   Explicitly include them. */
+@source "./**/*.{ts,tsx}";
+@source "../app/src/**/*.{ts,tsx}";
+@source "../platform/src/**/*.{ts,tsx}";
+@source "../landing/src/**/*.{ts,tsx}";
+
+@custom-variant dark (&:is(.dark, .dark *));
+
+/* Prevent zoom on mobile */
+html,
+body {
+  touch-action: manipulation;
+  -ms-touch-action: manipulation;
+  overscroll-behavior: none;
+}
+
+* {
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Hide scrollbar for horizontal scroll sections */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Dark-mode map tiles: lighter grey sea & land */
+.map-dark-mode .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(1.15) contrast(0.85) saturate(0.1);
+}
+.map-dark-mode .leaflet-container {
+  background: rgba(255, 255, 255, 0.06);
+}
+/* Dark-mode map popups: Leaflet hardcodes a WHITE bubble + tip, so our themed
+   popup text (text-foreground flips near-white in dark) renders white-on-white
+   and disappears. Flip the bubble, tip and close button to the card palette so
+   the pin popup reads as a dark card. The popup is rendered into the map's
+   popupPane, which lives inside this same .map-dark-mode wrapper, so the
+   selector scopes to it (and not to popups elsewhere). */
+.map-dark-mode .leaflet-popup-content-wrapper,
+.map-dark-mode .leaflet-popup-tip {
+  background: var(--card);
+  color: var(--foreground);
+}
+.map-dark-mode .leaflet-popup-close-button {
+  color: var(--muted-foreground);
+}
+
+/* Layout chrome clearance — single source of truth so every page agrees
+   on how much space the fixed mobile header and floating bottom nav take.
+   - Header height ≈ env(safe-area-inset-top) + 1rem pad-top + ~40px content
+     + 0.5rem pad-bottom. Round up to 5rem for visual breathing room.
+   - Bottom-nav clearance: env(safe-area-inset-bottom) + 1.5rem bottom offset
+     + ~3.5rem pill height. Round up to 5.5rem. */
+:root {
+  --mobile-header-clearance: calc(env(safe-area-inset-top) + 5rem);
+  --mobile-nav-clearance: calc(env(safe-area-inset-bottom) + 5.5rem);
+  /* Full viewport height for the app shell. In-browser we use dvh so the shell
+     tracks Safari's shrinking toolbar viewport (see the body note below). But an
+     installed home-screen PWA (display-mode: standalone) has NO toolbars, and
+     iOS there mis-measures 100dvh as SHORTER than the physical screen — leaving
+     a dead strip along the bottom. Plain vh is exact in standalone, so swap the
+     unit only in that mode via the media query below. */
+  --app-vh: 100dvh;
+}
+@media all and (display-mode: standalone) {
+  :root {
+    --app-vh: 100vh;
+  }
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Modern Minimalist Palette */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Semantic status tokens — every value has a .dark pairing below so status
+     surfaces stay AA-legible in both themes. Use bg-<x>/10 text-<x> for soft
+     chips, or bg-<x> text-<x>-foreground for solid. */
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+
+  /* Button edge tokens referenced by ui/button.tsx (previously undefined → the
+     border classes silently did nothing). */
+  --color-button-outline: var(--button-outline);
+  --color-primary-border: var(--primary-border);
+  --color-secondary-border: var(--secondary-border);
+  --color-destructive-border: var(--destructive-border);
+
+  --color-chart-1: hsl(12, 76%, 61%);
+  --color-chart-2: hsl(173, 58%, 39%);
+  --color-chart-3: hsl(197, 37%, 24%);
+  --color-chart-4: hsl(43, 74%, 66%);
+  --color-chart-5: hsl(27, 87%, 67%);
+
+  --radius: 0.75rem; /* Slightly tighter radius */
+
+  --font-sans: "Inter", "Plus Jakarta Sans", sans-serif;
+}
+
+@layer base {
+  :root {
+    --background: hsl(0, 0%, 98%);
+    --foreground: hsl(0, 0%, 9%);
+
+    --card: hsl(0, 0%, 100%);
+    --card-foreground: hsl(0, 0%, 9%);
+
+    --popover: hsl(0, 0%, 100%);
+    --popover-foreground: hsl(0, 0%, 9%);
+
+    --primary: hsl(0, 0%, 9%);
+    --primary-foreground: hsl(0, 0%, 100%);
+
+    --secondary: hsl(0, 0%, 96%);
+    --secondary-foreground: hsl(0, 0%, 9%);
+
+    --muted: hsl(0, 0%, 96%);
+    /* 45% → 42%: 45% only reached 4.36:1 on the 96% muted/secondary surfaces
+       (sub-AA). 42% clears 4.5:1 on muted, secondary and background. */
+    --muted-foreground: hsl(0, 0%, 42%);
+
+    --accent: hsl(0, 0%, 96%);
+    --accent-foreground: hsl(0, 0%, 9%);
+
+    /* Was hsl(0,84%,60%): white-on-it was only 3.6:1 (sub-AA) and it never had
+       a real border. Darkened so both white-on-destructive and destructive-as
+       -text clear 4.5:1. */
+    --destructive: hsl(0, 72%, 45%);
+    --destructive-foreground: hsl(0, 0%, 100%);
+
+    /* Semantic status (light): tuned so text-<x> on background/card and
+       white-on-<x> both clear AA. */
+    --success: hsl(142, 71%, 29%);
+    --success-foreground: hsl(0, 0%, 100%);
+    --warning: hsl(28, 80%, 35%);
+    --warning-foreground: hsl(0, 0%, 100%);
+    --info: hsl(217, 79%, 45%);
+    --info-foreground: hsl(0, 0%, 100%);
+
+    --border: hsl(0, 0%, 90%);
+    --input: hsl(0, 0%, 90%);
+    --ring: hsl(0, 0%, 9%);
+
+    /* Button edge colors (resolve via var() so they follow the theme). */
+    --button-outline: var(--border);
+    --primary-border: var(--primary);
+    --secondary-border: var(--border);
+    --destructive-border: var(--destructive);
+
+    /* Brand accent (personalization). `--brand-accent` is overridden at runtime
+       by accentStore with the owner's / admin's chosen hue; this is the pre-JS
+       fallback so the var always resolves (and covers the landing site, which
+       has no picker). The derived tints mix with `transparent`, so they read on
+       light OR dark surfaces — the surface beneath supplies the theme, so one
+       definition covers both modes and they recompute live when the runtime
+       `--brand-accent` changes. Used sparingly, only where the UI reflects the
+       user's current position or choice: active nav, on/checked controls,
+       selected pills. Tints (not solid fills behind text) keep every hue in the
+       palette — including the light ones (amber/cyan/teal) — AA-legible. */
+    --brand-accent: #10b981;
+    --brand-accent-subtle: color-mix(in srgb, var(--brand-accent) 14%, transparent);
+    --brand-accent-border: color-mix(in srgb, var(--brand-accent) 40%, transparent);
+  }
+
+  .dark {
+    --background: hsl(0, 0%, 21%);
+    --foreground: hsl(0, 0%, 98%);
+
+    --card: hsl(240, 5%, 12%);
+    --card-foreground: hsl(0, 0%, 98%);
+
+    --popover: hsl(0, 0%, 5%);
+    --popover-foreground: hsl(0, 0%, 98%);
+
+    --primary: hsl(0, 0%, 98%);
+    --primary-foreground: hsl(0, 0%, 0%);
+
+    --secondary: hsl(0, 0%, 12%);
+    --secondary-foreground: hsl(0, 0%, 98%);
+
+    --muted: hsl(0, 0%, 15%);
+    --muted-foreground: hsl(0, 0%, 65%);
+
+    --accent: hsl(0, 0%, 15%);
+    --accent-foreground: hsl(0, 0%, 98%);
+
+    /* Was hsl(0,62.8%,30.6%): far too dark — destructive-as-text was ~1.5:1
+       (effectively invisible) on the dark surfaces. A single red can't make
+       BOTH white-on-red and red-as-text clear AA, so we pair a bright red with
+       a near-black foreground: red-as-text on bg/card = 4.6–6.3:1 and the
+       near-black button label = 6.2:1 — all AA-normal. */
+    --destructive: hsl(0, 92%, 72%);
+    --destructive-foreground: hsl(0, 0%, 12%);
+
+    /* Semantic status (dark): brightened + dark foreground so text-<x> reads on
+       dark surfaces and <x>-foreground reads on the solid fill. */
+    --success: hsl(142, 64%, 52%);
+    --success-foreground: hsl(0, 0%, 12%);
+    --warning: hsl(38, 92%, 58%);
+    --warning-foreground: hsl(0, 0%, 12%);
+    --info: hsl(213, 90%, 66%);
+    --info-foreground: hsl(0, 0%, 12%);
+
+    --border: hsl(0, 0%, 20%);
+    --input: hsl(0, 0%, 20%);
+    --ring: hsl(0, 0%, 83.1%);
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply font-sans antialiased bg-background text-foreground transition-colors duration-300;
+    /* Clean background, no gradient */
+    background: var(--color-background);
+    /* dvh, not vh: on iOS/iPad Safari 100vh is TALLER than the visible viewport
+       (it spans behind the toolbars), while the app shell is h-[100dvh]. That
+       mismatch forces the body taller than the screen → a small document scroll
+       that drags the whole page (most visible on fully-bounded pages like
+       Messages). dvh tracks the visible viewport, so the shell never scrolls;
+       tall content (e.g. the landing site) still overflows and scrolls.
+       --app-vh resolves to 100dvh in-browser and 100vh in an installed PWA. */
+    min-height: var(--app-vh);
+  }
+
+  /* Native <select> dropdowns: strip the OS chevron and paint a custom one so
+     they match the filled input fields used across the forms (owner, tenant,
+     platform / desktop + mobile). Light + dark variants use muted-foreground. */
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 16px 16px;
+    padding-right: 2.25rem !important;
+  }
+  .dark select {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23A6A6A6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  }
+  /* Multi-line / size selects don't show a chevron in the OS UI either. */
+  select[multiple],
+  select[size]:not([size="1"]) {
+    background-image: none;
+    padding-right: revert !important;
+  }
+}
+
+/* Accessibility: honor the OS "reduce motion" setting. Unlayered + !important so
+   it overrides Tailwind/component transitions and CSS animations everywhere.
+   (Embla autoplay is JS-driven and still needs per-component gating.) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@layer utilities {
+  /* Interaction feedback for Button & Badge (referenced via cva but previously
+     undefined → the two most-used primitives had NO hover/active state in any
+     app). The overlay tints with the element's own text color (currentColor),
+     so it stays visible on light surfaces AND on the inverted dark
+     primary/destructive buttons, in both themes. */
+  .hover-elevate,
+  .active-elevate-2 {
+    position: relative;
+  }
+  .hover-elevate::after,
+  .active-elevate-2::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background-color: transparent;
+    transition: background-color 0.15s ease;
+  }
+  .hover-elevate:hover::after {
+    background-color: color-mix(in srgb, currentColor 8%, transparent);
+  }
+  .active-elevate-2:active::after {
+    background-color: color-mix(in srgb, currentColor 15%, transparent);
+  }
+
+  .revolut-gradient {
+    /* Kept for legacy support but updated to be cleaner if used */
+    background: linear-gradient(180deg, #111111 0%, #333333 100%);
+  }
+
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+  }
+
+  .dark .glass-panel {
+    background: rgba(15, 15, 15, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .text-shadow-sm {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Compliance preview — style raw HTML rendered from admin editor */
+.compliance-preview h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-foreground);
+  margin-bottom: 0.25rem;
+}
+.compliance-preview h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+.compliance-preview p {
+  margin-bottom: 0.75rem;
+}
+.compliance-preview ul {
+  list-style: disc;
+  margin-left: 1.25rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.compliance-preview ul li {
+  margin-bottom: 0.25rem;
+}
+.compliance-preview strong {
+  color: var(--color-foreground);
+  font-weight: 600;
+}
+.compliance-preview em {
+  opacity: 0.7;
+}
+
+/* Fix vaul drawer on desktop — override inline styles for centered modal */
+@media (min-width: 768px) {
+  [vaul-drawer] {
+    bottom: auto !important;
+    left: 50% !important;
+    right: auto !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    border-radius: 1rem !important;
+    max-width: 42rem;
+    width: 90vw;
+  }
+}

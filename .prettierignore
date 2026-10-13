@@ -1,0 +1,27 @@
+# Dependencies
+node_modules
+functions/node_modules
+
+# Build output
+dist
+server/public
+functions/lib
+client/landing/dist
+client/app/dist
+client/platform/dist
+
+# Tooling local state
+.firebase
+coverage
+.local
+
+# Lockfiles (machine-generated)
+package-lock.json
+functions/package-lock.json
+
+# Generated / vendored assets
+branding
+emails
+
+# Public static assets
+**/public/**
