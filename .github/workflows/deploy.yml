@@ -53,7 +53,7 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       # actions/setup-node@v6 — Node 24 native
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           # Matches functions/package.json engines.node + firebase.json
           # functions runtime so the build runs on the same major
@@ -182,7 +182,7 @@ jobs:
       # tools moves off node-fetch (still google-auth-library ^9 as of 15.22.2);
       # bump this patch deliberately, never let it float.
       # actions/setup-node@v6 — Node 24 native
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: "20.20.2"
 
