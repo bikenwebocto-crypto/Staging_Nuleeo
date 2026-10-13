@@ -45,7 +45,7 @@ jobs:
       # comment above the pin so future readers know what they're on.
 
       # actions/checkout@v6 — Node 24 native
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           # On a workflow_run trigger, GITHUB_SHA points to the default
           # branch tip rather than the commit CI verified. Pin to the
@@ -92,7 +92,7 @@ jobs:
       # sourcemaps off, rather than silently shipping un-debuggable stacks.
       # actions/upload-artifact@v4.6.2
       - name: Upload client sourcemaps (private)
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: sourcemaps-${{ github.event.workflow_run.head_sha || github.sha }}
           path: |
