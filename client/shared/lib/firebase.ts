@@ -7,7 +7,7 @@
 // → Project settings → Your apps → Web app config.
 
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, type Auth } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, OAuthProvider, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getFunctions, type Functions } from "firebase/functions";
 
@@ -34,3 +34,9 @@ export const db: Firestore = getFirestore(firebaseApp);
 export const stripeFunctions: Functions = getFunctions(firebaseApp, STRIPE_EXT_REGION);
 
 export const googleProvider = new GoogleAuthProvider();
+
+// Requires Apple enabled under Firebase Console → Authentication → Sign-in
+// method, with a Services ID + key registered in the Apple Developer account.
+export const appleProvider = new OAuthProvider("apple.com");
+appleProvider.addScope("email");
+appleProvider.addScope("name");
