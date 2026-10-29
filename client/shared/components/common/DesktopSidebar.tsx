@@ -46,6 +46,8 @@ export interface DesktopSidebarProps {
   // caller's own subscription. Platform (no active portfolio) omits this and
   // falls back to the caller's plan.
   currentPlan?: OwnerPlanKey;
+  // Extra classes for the sidebar container (e.g. platform's translucent bg).
+  className?: string;
 }
 
 // Shared desktop sidebar chrome used by app/ and platform/. Per-product extras
@@ -59,6 +61,7 @@ export function DesktopSidebar({
   bottomSlot,
   onItemHover,
   currentPlan,
+  className,
 }: DesktopSidebarProps) {
   const [location] = useLocation();
   const { plan: userPlan } = usePlan();
@@ -89,7 +92,12 @@ export function DesktopSidebar({
     <>
       <PricingModal open={isPricingOpen} onOpenChange={setIsPricingOpen} />
 
-      <div className="hidden md:flex flex-col bg-card h-dvh sticky top-0 z-50 p-4 border-r border-border dark:border-transparent overflow-hidden w-64">
+      <div
+        className={cn(
+          "hidden md:flex flex-col bg-card h-dvh sticky top-0 z-50 p-4 border-r border-border dark:border-transparent overflow-hidden w-64",
+          className,
+        )}
+      >
         {brandHref ? <Link href={brandHref}>{brand}</Link> : brand}
 
         {topSlot}

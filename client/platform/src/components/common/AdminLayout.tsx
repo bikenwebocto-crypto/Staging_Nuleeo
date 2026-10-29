@@ -52,7 +52,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
 
   return (
     <AdminShellContext.Provider value={ctxValue}>
-      <div className="bg-background flex font-sans h-[100dvh]">
+      <div className="bg-[#060A0B] bg-[linear-gradient(180deg,#103E42E5_0%,#060A0B00_51%)] flex font-sans h-[100dvh]">
         <SkipToContent />
         <DesktopSidebar role="admin" />
         <MobileHeader />

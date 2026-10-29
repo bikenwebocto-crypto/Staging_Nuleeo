@@ -37,7 +37,7 @@ export function UserLayout({
   const showBottomNav = !location.includes("/profile") && effectiveRole !== "tenant";
 
   return (
-    <div className="bg-background flex font-sans overflow-x-hidden h-[100dvh]">
+    <div className="bg-[#060A0B] bg-[linear-gradient(180deg,#103E42E5_0%,#060A0B00_51%)] flex font-sans overflow-x-hidden h-[100dvh]">
       <DesktopSidebar role={effectiveRole} />
       <div className="flex-1 relative overflow-y-auto overflow-x-hidden h-[100dvh] scroll-smooth overscroll-y-none flex flex-col">
         <DesktopHeader

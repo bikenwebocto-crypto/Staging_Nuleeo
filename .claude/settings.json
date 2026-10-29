@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Test-Path node_modules\\\\cross-env; $env:NODE_ENV='development'; $p = Start-Process -FilePath \"cmd.exe\" -ArgumentList \"/c npx tsx server/index.ts > `\"$env:TEMP\\\\olio-dev2.log`\" 2>&1\" -PassThru -WindowStyle Hidden; Start-Sleep -Seconds 20; Get-Content \"$env:TEMP\\\\olio-dev2.log\" -Tail 40; if \\(-not $p.HasExited\\) { \"STILL RUNNING\" })",
+      "PowerShell($v = \\(Get-Content node_modules\\\\cross-env\\\\package.json -Raw | ConvertFrom-Json\\).version; \"installed: $v\"; npm install -D \"cross-env@$v\" 2>&1 | Select-Object -Last 5)",
+      "PowerShell(Select-String -Path package.json -Pattern '\"cross-env\"' | ForEach-Object { $_.Line.Trim\\(\\) }; $log=\"$env:TEMP\\\\olio-dev3.log\"; $p = Start-Process -FilePath \"cmd.exe\" -ArgumentList \"/c npm run dev > `\"$log`\" 2>&1\" -PassThru -WindowStyle Hidden; $ok=$false; for \\($i=0; $i -lt 60; $i++\\) { Start-Sleep -Seconds 1; if \\(\\(Get-Content $log -Raw -ErrorAction SilentlyContinue\\) -match 'serving on port|rror'\\) { $ok=$true; break } }; Get-Content $log; $c = Get-NetTCPConnection -State Listen -LocalPort 5001 -ErrorAction SilentlyContinue; if \\($c\\) { \"listening on 5001 \\(pid $\\($c.OwningProcess\\)\\)\"; Stop-Process -Id $c.OwningProcess -Force; \"stopped test server\" })",
+      "PowerShell($pr = Get-Process -Id 12160; \"$\\($pr.ProcessName\\) started $\\($pr.StartTime\\)\"; \\(Get-WmiObject Win32_Process -Filter \"ProcessId=12160\"\\).CommandLine)",
+      "PowerShell(Select-String -Path .env -Pattern '^VITE_FIREBASE_\\(PROJECT_ID|AUTH_DOMAIN\\)|EMULATOR' | ForEach-Object { $_.Line })"
+    ]
+  }
+}

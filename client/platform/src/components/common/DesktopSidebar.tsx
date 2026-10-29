@@ -236,6 +236,7 @@ export function DesktopSidebar({ role = "owner" }: DesktopSidebarProps) {
     <>
       <SharedDesktopSidebar
         role={role}
+        className="bg-card/10"
         items={items}
         brandHref={role === "admin" ? "/admin" : undefined}
       />

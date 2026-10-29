@@ -73,7 +73,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-dvh w-full bg-neutral-950 text-neutral-100 flex items-center justify-center px-6">
+    <div className="min-h-dvh w-full bg-[#060A0B] bg-[linear-gradient(180deg,#103E42E5_0%,#060A0B00_51%)] text-neutral-100 flex items-center justify-center px-6">
       <div className="w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center space-y-2">
           <Logo variant="wordmark" color="white" className="h-10 w-auto" />
