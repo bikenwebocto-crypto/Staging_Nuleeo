@@ -16,7 +16,13 @@ const PATH_QUERIES: Record<string, ReadonlyArray<readonly string[]>> = {
   "/tenant/activity": [["/api/tenant/activity"]],
 
   // Owner pages
-  "/owner": [["/api/owner/properties"], ["/api/owner/transactions"], ["/api/owner/summary"]],
+  "/owner": [
+    ["/api/owner/properties"],
+    ["/api/owner/transactions?sinceDays=370"],
+    ["/api/owner/summary"],
+    ["/api/owner/tenants"],
+    ["/api/owner/agreements"],
+  ],
   "/owner/agreements": [["/api/owner/agreements"]],
   "/owner/activity": [["/api/owner/transactions"]],
   "/properties": [["/api/owner/properties"]],

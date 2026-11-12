@@ -367,9 +367,15 @@ export async function deleteUserCascade(userId: string): Promise<UserCascadeResu
   }
 
   // Doc deletes — chunked into batches of 500 (Firestore commit limit).
+  // Workspaces the user owns (real-estate wrappers + business). Same ownerId
+  // guard as portfolios: a transferred workspace is never wiped by its old
+  // owner's erasure. Workspaces hold no personal data beyond the name.
+  const ownedWorkspaces = await dbi.collection(COL.workspaces).where("ownerId", "==", userId).get();
+
   // Conversations are handled separately (above + below) so a parent is never
   // deleted ahead of its messages.
   const allDocsToDelete = [
+    ...ownedWorkspaces.docs,
     ...ownedTenants.docs,
     ...rentedTenancies.docs,
     ...ownerExpiredAgreements.docs,

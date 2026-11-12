@@ -168,6 +168,35 @@ describe("Owner ↔ tenant conversations", () => {
   });
 });
 
+describe("Workspaces", () => {
+  // ws1 is ALICE's workspace; CAROL is a direct member, BOB is not.
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "workspaces/ws1"), {
+        ownerId: ALICE,
+        type: "real_estate",
+        name: "Alice Real Estate",
+        memberIds: [ALICE, CAROL],
+      });
+    });
+  });
+
+  it("only listed members can read a workspace", async () => {
+    await assertSucceeds(getDoc(doc(asUser(ALICE), "workspaces/ws1")));
+    await assertSucceeds(getDoc(doc(asUser(CAROL), "workspaces/ws1")));
+    await assertFails(getDoc(doc(asUser(BOB), "workspaces/ws1")));
+    await assertFails(getDoc(doc(asAnon(), "workspaces/ws1")));
+  });
+
+  it("workspaces are never client-writable, even by their owner", async () => {
+    await assertFails(setDoc(doc(asUser(ALICE), "workspaces/ws1"), { name: "Renamed" }));
+    // Nobody can conjure a workspace that lists themselves as a member.
+    await assertFails(
+      setDoc(doc(asUser(BOB), "workspaces/ws2"), { ownerId: BOB, memberIds: [BOB] }),
+    );
+  });
+});
+
 describe("Deny-by-default catch-all", () => {
   it("core app collections are entirely server-only (no client read or write)", async () => {
     for (const path of ["users/alice", "properties/p1", "tenancies/t1", "agreements/a1"]) {

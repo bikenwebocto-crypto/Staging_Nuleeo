@@ -20,6 +20,7 @@ import { MaintenanceScreen } from "@ui/components/MaintenanceScreen";
 import { prefetchForRole } from "@/lib/prefetch";
 import { isOwnerExperience } from "@/lib/isOwner";
 import { ActivePortfolioProvider } from "@/lib/activePortfolio";
+import { WorkspaceProvider } from "@/lib/workspaces";
 import { ensureOneSignal, loginOneSignal, logoutOneSignal } from "@ui/lib/onesignal";
 import { AppLayout } from "@/components/common/AppLayout";
 import { RoleSelectionModal } from "@/components/common/RoleSelectionModal";
@@ -72,6 +73,7 @@ const OwnerSettingsPage = lazyRoute(() => import("@/pages/owner/OwnerSettingsPag
   buckets: ["owner"],
 });
 const OwnerOnboarding = lazyWithReload(() => import("@/pages/owner/OwnerOnboarding"));
+const WorkspacesPage = lazyWithReload(() => import("@/pages/owner/WorkspacesPage"));
 const PropertiesPage = lazyRoute(() => import("@/pages/owner/PropertiesPage"), {
   buckets: ["owner"],
 });
@@ -293,7 +295,9 @@ function HomeRedirect() {
     if (!profile) return; // wait for profile to load before deciding
 
     const isOwner = isOwnerExperience(profile, plan);
-    setLocation(isOwner ? "/owner" : "/tenant");
+    // Owners land on the workspace picker first so they choose (or create)
+    // a workspace right after signing in; tenants go straight to their app.
+    setLocation(isOwner ? "/workspaces" : "/tenant");
   }, [loading, planLoading, firebaseUser, profile, plan, setLocation]);
 
   // Signed in but /api/me failed — show a retry UI instead of spinning forever.
@@ -688,6 +692,16 @@ function Router() {
           </RequireAuth>
         </Route>
 
+        {/* Workspace picker — auth required, standalone layout (no sidebar),
+          owner experience only. Reached from the sidebar switcher. */}
+        <Route path="/workspaces">
+          <RequireAuth>
+            <RequireOwnerExperience>
+              <WorkspacesPage />
+            </RequireOwnerExperience>
+          </RequireAuth>
+        </Route>
+
         {/* Everything else: authenticated routes — AppLayout wraps the shell so the sidebar/header survive navigation */}
         <Route>
           <RequireAuth>
@@ -705,18 +719,20 @@ export default function App() {
       <AuthProvider>
         <PrivilegesProvider>
           <ActivePortfolioProvider>
-            <TooltipProvider>
-              <ThemeProvider />
-              <Toaster />
-              <CheckoutReturnHandler />
-              <PreloadRoutes />
-              <PrefetchUserData />
-              <OneSignalBridge />
-              <HeartbeatBridge />
-              <MaintenanceGate>
-                <Router />
-              </MaintenanceGate>
-            </TooltipProvider>
+            <WorkspaceProvider>
+              <TooltipProvider>
+                <ThemeProvider />
+                <Toaster />
+                <CheckoutReturnHandler />
+                <PreloadRoutes />
+                <PrefetchUserData />
+                <OneSignalBridge />
+                <HeartbeatBridge />
+                <MaintenanceGate>
+                  <Router />
+                </MaintenanceGate>
+              </TooltipProvider>
+            </WorkspaceProvider>
           </ActivePortfolioProvider>
         </PrivilegesProvider>
       </AuthProvider>

@@ -36,6 +36,18 @@ export const menuItems = [
   { icon: MessageCircle, label: "Ask Olio", path: "/ask-olio" },
 ];
 
+// Sidebar items shown while a BUSINESS workspace is active. Business
+// workspaces have no property/portfolio data yet, so portfolio-only sections
+// (properties, agreements, activity, insights, access, banking, marketplace)
+// are hidden there; general tools stay.
+export const BUSINESS_WORKSPACE_PATHS: string[] = [
+  "/owner",
+  "/owner/messages",
+  "/calculator",
+  "/network",
+  "/ask-olio",
+];
+
 export const tenantMenuItems = [
   { icon: Home, label: "Home", path: "/tenant" },
   { icon: FileText, label: "Agreements", path: "/tenant/agreements" },

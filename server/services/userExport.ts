@@ -33,6 +33,7 @@ export interface UserDataExport {
   suggestionRequests: unknown[];
   marketplaceLeads: unknown[];
   complimentaryPlans: unknown[];
+  workspaces: unknown[];
 }
 
 function rows(snap: FirebaseFirestore.QuerySnapshot): unknown[] {
@@ -105,6 +106,9 @@ export async function exportUserData(userId: string): Promise<UserDataExport> {
     dbi.collection(COL.complimentaryPlans).where("userId", "==", userId).get(),
   ]);
 
+  // Workspaces the user owns (name + type; no other personal data).
+  const ownedWorkspaces = await dbi.collection(COL.workspaces).where("ownerId", "==", userId).get();
+
   // Saved cards: include the user's own card metadata (brand/last4/expiry) but
   // strip the internal Stripe payment-method token from their copy.
   const paymentMethods = paymentMethodsSnap.docs.map((d) => {
@@ -154,5 +158,6 @@ export async function exportUserData(userId: string): Promise<UserDataExport> {
     suggestionRequests: rows(suggestionRequests),
     marketplaceLeads: rows(marketplaceLeads),
     complimentaryPlans: rows(complimentaryPlans),
+    workspaces: rows(ownedWorkspaces),
   };
 }

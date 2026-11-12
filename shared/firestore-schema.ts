@@ -62,6 +62,11 @@ export const COL = {
   // deletion by up to ~1h can't re-provision the account via GET /api/me.
   // Written by deleteUserCascade; safe to retain (also a proof-of-deletion).
   deletedUsers: "deletedUsers",
+  // Top-level containers the owner switches between (Real Estate / Business).
+  // A real-estate workspace WRAPS the owner's existing Portfolio doc — it adds
+  // a name + type on top, it does not move or copy any portfolio data. Written
+  // only by the Express API (server/services/workspaces.ts). See `Workspace`.
+  workspaces: "workspaces",
 } as const;
 
 // Tombstone for a hard-deleted user (see COL.deletedUsers). Intentionally holds
@@ -1402,6 +1407,11 @@ export interface User {
   portfolioRef?: string;
   // Push notification preferences. Missing keys are treated as opted-in.
   notificationPrefs?: NotificationPrefs;
+  // Workspace (COL.workspaces doc id) this user last opened. Written by
+  // POST /api/workspaces/:id/open after a membership check; used to restore
+  // the selection on a new device. Absent ⇒ default to the user's own
+  // real-estate workspace.
+  lastWorkspaceId?: string;
 }
 
 // The banking payload that used to live on `User`, now owned by `Portfolio`.
@@ -1453,6 +1463,35 @@ export interface Portfolio extends PortfolioBanking {
   ownerId: string;
   // The human-friendly label mirrored from User.portfolioId (e.g. "OLIO-A4F2K9").
   portfolioId?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+// ── Workspaces ──────────────────────────────────────────────────────────
+// One login, separate workspaces: a property portfolio and a business never
+// share a dashboard. Doc ids are DETERMINISTIC so concurrent creates collapse
+// onto one doc (Firestore `create()` fails on an existing id):
+//   real_estate → `re_<Portfolio.id>`   (at most one per portfolio)
+//   business    → `biz_<ownerId>`       (at most one per owner, for now)
+//
+// Membership: the owner is always a member. For a real-estate workspace,
+// users with an ACTIVE PortfolioAccessContact on the wrapped portfolio are
+// members too — derived at read time from that collection (the single source
+// of truth for grants), NOT copied into `memberIds`, so revoking a grant takes
+// effect immediately with nothing to keep in sync. `memberIds` therefore only
+// lists direct members and backs the Firestore read rule.
+export type WorkspaceType = "real_estate" | "business";
+export const WORKSPACE_TYPES: readonly WorkspaceType[] = ["real_estate", "business"];
+export const WORKSPACE_NAME_MAX = 60;
+
+export interface Workspace {
+  id: string;
+  type: WorkspaceType;
+  name: string;
+  ownerId: string; // User.id
+  // real_estate only: the wrapped Portfolio doc id (Portfolio.id).
+  portfolioId?: string;
+  memberIds: string[];
   createdAt: string;
   updatedAt?: string;
 }

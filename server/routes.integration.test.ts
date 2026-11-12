@@ -126,6 +126,7 @@ const EXPECTED: Array<[string, string]> = [
   ["GET", "/api/tenant/outstanding"],
   ["GET", "/api/tenant/payment-details/:unitId"],
   ["GET", "/api/tenant/units"],
+  ["GET", "/api/workspaces"],
   ["GET", "/api/u/:token"],
 
   ["PATCH", "/api/admin/emails/:id"],
@@ -209,6 +210,8 @@ const EXPECTED: Array<[string, string]> = [
   ["POST", "/api/tenant/payment/checkout"],
   ["POST", "/api/tenant/payment/finalize"],
   ["POST", "/api/tenant/payment/log"],
+  ["POST", "/api/workspaces"],
+  ["POST", "/api/workspaces/:id/open"],
   ["POST", "/api/tickets"],
   ["POST", "/api/u/:token"],
   ["POST", "/api/webhooks/resend"],

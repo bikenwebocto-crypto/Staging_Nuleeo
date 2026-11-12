@@ -153,6 +153,7 @@ export interface OwnerTenant {
 export interface OwnerSummary {
   unitCount: number;
   portfolioValue: number;
+  portfolioGrowth?: number | null;
   monthlyRevenue: number;
   occupancyRate: number;
   equityInvested: number;

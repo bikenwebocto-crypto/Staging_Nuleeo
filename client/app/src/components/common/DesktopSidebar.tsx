@@ -4,28 +4,27 @@ import {
   Building2,
   UserPlus,
   X,
-  Check,
   RefreshCw,
   User as UserIcon,
-  ChevronDown,
-  Wallet,
-  Shield,
-  Scale,
-  CreditCard,
   ShoppingBag,
   Activity,
   FileText,
   FileBarChart2,
 } from "lucide-react";
-import { cn } from "@ui/lib/utils";
 import { DesktopSidebar as SharedDesktopSidebar } from "@ui/components/common/DesktopSidebar";
-import { menuItems, tenantMenuItems, adminMenuItems } from "@/lib/menuItems";
+import {
+  menuItems,
+  tenantMenuItems,
+  adminMenuItems,
+  BUSINESS_WORKSPACE_PATHS,
+} from "@/lib/menuItems";
 import { useMessagesUnread } from "@/lib/useMessagesUnread";
 import { AddPropertyDrawer } from "@/components/owner/AddPropertyDrawer";
 import { RecordActivityDialog } from "@/components/owner/RecordActivityDialog";
 import { CreatePropertyReportDialog } from "@/components/owner/CreatePropertyReportDialog";
 import { prefetchForPath } from "@/lib/prefetch";
-import { useAccessiblePortfolios } from "@/lib/ownerQueries";
+import { useWorkspace } from "@/lib/workspaces";
+import { WorkspaceSwitcher } from "@/components/owner/workspace/WorkspaceSwitcher";
 import { useActivePortfolio } from "@/lib/activePortfolio";
 import { useActivePortfolioPlan } from "@/lib/useActivePortfolioPlan";
 import { useAuth } from "@ui/lib/useAuth";
@@ -78,123 +77,22 @@ export function DesktopSidebar({ role = "owner" }: DesktopSidebarProps) {
       ? items.map((it) => (it.label === "Messages" ? { ...it, badge: messagesUnread } : it))
       : items;
 
-  // ── Portfolio switcher (owner side only) ─────────────────────────────
-  const portfoliosQuery = useAccessiblePortfolios();
-  const accessiblePortfolios = portfoliosQuery.data ?? [];
-  const { activeOwnerId, activePortfolioDocId, isSelf, setActiveOwnerId } = useActivePortfolio();
-  // Sidebar plan badge reflects the ACTIVE PORTFOLIO's plan, not the caller's
-  // own subscription — so a granted contact viewing a Pro portfolio sees "PRO".
+  // ── Workspace switcher (owner side only) ─────────────────────────────
+  // Replaces the old portfolio switcher: portfolios shared with this user via
+  // portfolio access appear as shared real-estate workspaces, and selecting
+  // one switches the active portfolio exactly as before.
+  const { activeOwnerId, activePortfolioDocId, isSelf } = useActivePortfolio();
+  // Sidebar plan badge reflects the ACTIVE PORTFOLIO plan.
   const { plan: activePlan } = useActivePortfolioPlan();
-  const activePortfolio =
-    accessiblePortfolios.find((p) => p.ownerId === activeOwnerId) ??
-    accessiblePortfolios.find((p) => p.isSelf) ??
-    accessiblePortfolios[0];
-  const [isPortfolioMenuOpen, setIsPortfolioMenuOpen] = useState(false);
+  const { activeWorkspace } = useWorkspace();
+  const workspaceSwitcher = role === "owner" ? <WorkspaceSwitcher /> : null;
 
-  // Close the portfolio dropdown when clicking outside it.
-  useEffect(() => {
-    if (!isPortfolioMenuOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest("[data-portfolio-switcher]")) {
-        setIsPortfolioMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [isPortfolioMenuOpen]);
-
-  const portfolioSwitcher =
-    role === "owner" && activePortfolio ? (
-      <div className="relative mb-3" data-portfolio-switcher>
-        <button
-          onClick={() => setIsPortfolioMenuOpen((v) => !v)}
-          className="w-full flex items-center gap-2 rounded-lg border border-border bg-secondary/30 hover:bg-secondary transition-colors text-foreground justify-between px-3 py-2"
-        >
-          <span className="flex items-center gap-2 min-w-0">
-            <Wallet size={16} className="shrink-0 text-muted-foreground" />
-            <span className="flex flex-col items-start min-w-0">
-              <span className="text-[11px] font-mono font-semibold text-foreground truncate leading-tight">
-                {activePortfolio.portfolioId || "—"}
-              </span>
-              <span className="text-[10px] text-muted-foreground truncate leading-tight">
-                {activePortfolio.ownerName || activePortfolio.ownerEmail}
-              </span>
-            </span>
-          </span>
-          <ChevronDown
-            size={14}
-            className={cn(
-              "text-muted-foreground shrink-0 transition-transform",
-              isPortfolioMenuOpen && "rotate-180",
-            )}
-          />
-        </button>
-
-        {isPortfolioMenuOpen && (
-          <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-lg overflow-hidden z-50">
-            <div className="px-3 py-2 border-b border-border">
-              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">
-                Your Portfolios
-              </p>
-            </div>
-            <div className="max-h-72 overflow-y-auto">
-              {accessiblePortfolios.length === 0 && (
-                <div className="px-3 py-3 text-xs text-muted-foreground">No portfolios yet</div>
-              )}
-              {accessiblePortfolios.map((p) => {
-                const RoleIcon =
-                  p.role === "self"
-                    ? Wallet
-                    : p.role === "legacy"
-                      ? Shield
-                      : p.role === "legal"
-                        ? Scale
-                        : CreditCard;
-                const roleLabel =
-                  p.role === "self"
-                    ? "Owner"
-                    : p.role === "legacy"
-                      ? "Legacy"
-                      : p.role === "legal"
-                        ? "Legal"
-                        : "Financial";
-                const isActive = p.ownerId === activePortfolio.ownerId;
-                return (
-                  <button
-                    key={p.ownerId}
-                    onClick={() => {
-                      setIsPortfolioMenuOpen(false);
-                      setActiveOwnerId(p.isSelf ? null : p.ownerId);
-                    }}
-                    className={cn(
-                      "w-full flex items-start gap-2.5 px-3 py-2.5 text-left hover:bg-secondary transition-colors",
-                      isActive && "bg-secondary/50",
-                    )}
-                  >
-                    <RoleIcon size={14} className="text-muted-foreground shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-mono font-semibold text-foreground truncate">
-                          {p.portfolioId || "—"}
-                        </span>
-                        <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-secondary text-muted-foreground tracking-wide">
-                          {roleLabel}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-muted-foreground truncate">
-                        {p.ownerName || p.ownerEmail}
-                      </div>
-                    </div>
-                    {isActive && <Check size={14} className="text-primary shrink-0 mt-1" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-    ) : null;
+  // A business workspace has no property data yet, so portfolio-only
+  // sections are hidden there (they would show the real-estate portfolio).
+  const visibleItems =
+    role === "owner" && activeWorkspace?.type === "business"
+      ? sidebarItems.filter((it) => BUSINESS_WORKSPACE_PATHS.includes(it.path))
+      : sidebarItems;
 
   // ── Switch Mode (Tenant ↔ Owner) ─────────────────────────────────────
   // Hidden for tenants who haven't activated owner mode yet — they enable it
@@ -280,9 +178,9 @@ export function DesktopSidebar({ role = "owner" }: DesktopSidebarProps) {
     <>
       <SharedDesktopSidebar
         role={role}
-        items={sidebarItems}
+        items={visibleItems}
         brandHref={role === "tenant" ? "/tenant" : role === "owner" ? "/owner" : undefined}
-        topSlot={portfolioSwitcher}
+        topSlot={workspaceSwitcher}
         bottomSlot={switchModeButton}
         onItemHover={prefetchForPath}
         currentPlan={activePlan}

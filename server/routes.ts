@@ -37,6 +37,7 @@ import { registerAnalyticsRoutes } from "./routes/analytics";
 import { registerPortfolioRoutes } from "./routes/portfolio";
 import { registerConnectRoutes } from "./routes/connect";
 import { registerTenantRoutes } from "./routes/tenant";
+import { registerWorkspaceRoutes } from "./routes/workspaces";
 import { registerConfigRoutes } from "./routes/config";
 import { registerMediaRoutes } from "./routes/media";
 import { registerAdminPushRoutes } from "./routes/adminPush";
@@ -227,6 +228,7 @@ export function registerRoutes(app: Express): void {
   registerPortfolioRoutes(app, { requireOwnerPlanPrivilege });
   registerConnectRoutes(app);
   registerTenantRoutes(app);
+  registerWorkspaceRoutes(app);
 
   // ── Admin surface (role + platform-matrix gated) ──────────────────
   registerConfigRoutes(app, { requireRole, requirePlatformPrivilege });

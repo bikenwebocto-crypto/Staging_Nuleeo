@@ -119,6 +119,17 @@ service cloud.firestore {
       }
     }
 
+    // Workspaces (Real Estate / Business containers). Direct members may read
+    // their own workspace docs; members who reach a workspace through a
+    // portfolio-access grant are served by GET /api/workspaces instead (grants
+    // are evaluated server-side, never copied into memberIds). All writes go
+    // through the Express API (Admin SDK bypasses rules).
+    match /workspaces/{workspaceId} {
+      allow read: if request.auth != null &&
+        request.auth.uid in resource.data.memberIds;
+      allow write: if false;
+    }
+
     // Everything else: server-only via Admin SDK.
     match /{document=**} {
       allow read, write: if false;
