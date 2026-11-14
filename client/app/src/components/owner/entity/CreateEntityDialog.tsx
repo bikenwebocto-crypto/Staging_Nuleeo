@@ -19,7 +19,12 @@ type Field = "name" | "legalName" | "registrationNumber" | "vatNumber" | "sector
 const FIELDS: { key: Field; label: string; placeholder: string; companyOnly?: boolean }[] = [
   { key: "name", label: "Display name", placeholder: "Acme Holdings" },
   { key: "legalName", label: "Legal name", placeholder: "Acme Holdings Ltd", companyOnly: true },
-  { key: "registrationNumber", label: "Registration number", placeholder: "HE123456", companyOnly: true },
+  {
+    key: "registrationNumber",
+    label: "Registration number",
+    placeholder: "HE123456",
+    companyOnly: true,
+  },
   { key: "vatNumber", label: "VAT number", placeholder: "CY12345678X", companyOnly: true },
   { key: "sector", label: "Sector", placeholder: "Real estate", companyOnly: true },
   { key: "address", label: "Registered address", placeholder: "Street, city, country" },
@@ -87,7 +92,12 @@ export function CreateEntityDialog({
   };
 
   const types: { t: LegalEntityType; icon: typeof Building2; hint: string; enabled: boolean }[] = [
-    { t: "COMPANY", icon: Building2, hint: "A company you hold assets or trade through", enabled: true },
+    {
+      t: "COMPANY",
+      icon: Building2,
+      hint: "A company you hold assets or trade through",
+      enabled: true,
+    },
     {
       t: "PERSONAL",
       icon: User,
@@ -100,7 +110,9 @@ export function CreateEntityDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90dvh] max-w-[520px] overflow-y-auto rounded-3xl border-0 bg-[#111618] p-7 text-[#F4F4F2]">
         <DialogHeader className="text-left">
-          <DialogTitle className="text-xl font-semibold tracking-[-0.02em]">Add a company</DialogTitle>
+          <DialogTitle className="text-xl font-semibold tracking-[-0.02em]">
+            Add a company
+          </DialogTitle>
           <DialogDescription className="text-sm text-[#A3A7AB]">
             Companies belong to you, so they're available in both your real estate and business
             workspaces.
@@ -168,7 +180,10 @@ export function CreateEntityDialog({
           )}
 
           {error && (
-            <p role="alert" className="rounded-2xl bg-[#FF7A7A]/10 px-4 py-3 text-sm text-[#FF7A7A]">
+            <p
+              role="alert"
+              className="rounded-2xl bg-[#FF7A7A]/10 px-4 py-3 text-sm text-[#FF7A7A]"
+            >
               {error}
             </p>
           )}
@@ -186,7 +201,9 @@ export function CreateEntityDialog({
               disabled={create.isPending}
               className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-white text-sm font-semibold text-[#060A0B] transition hover:brightness-95 disabled:opacity-60"
             >
-              {create.isPending && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
+              {create.isPending && (
+                <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+              )}
               Add {ENTITY_TYPE_LABEL[type].toLowerCase()}
             </button>
           </div>

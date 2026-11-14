@@ -82,7 +82,13 @@ describe("validateWizardStep", () => {
 describe("sanitizeWizardData", () => {
   it("drops unknown fields and wrong types", () => {
     expect(
-      sanitizeWizardData({ businessType: "LLC", legalName: "  X  ", ownerId: "evil", sharePercent: "50", country: "cy" }),
+      sanitizeWizardData({
+        businessType: "LLC",
+        legalName: "  X  ",
+        ownerId: "evil",
+        sharePercent: "50",
+        country: "cy",
+      }),
     ).toEqual({ legalName: "X" });
   });
 });
@@ -110,7 +116,10 @@ describe("buildBusinessEntityFields", () => {
   });
 
   it("reports the first failing step", () => {
-    expect(buildBusinessEntityFields({ ...COMPLETE, sector: undefined })).toMatchObject({ ok: false, step: 2 });
+    expect(buildBusinessEntityFields({ ...COMPLETE, sector: undefined })).toMatchObject({
+      ok: false,
+      step: 2,
+    });
   });
 });
 
@@ -151,13 +160,22 @@ describe("buildBusinessPortfolio", () => {
   });
 
   it("searches name and legal name, case-insensitively", () => {
-    expect(buildBusinessPortfolio(entities, { q: "ALPHA" }).businesses.map((b) => b.id)).toEqual(["a", "c"]);
+    expect(buildBusinessPortfolio(entities, { q: "ALPHA" }).businesses.map((b) => b.id)).toEqual([
+      "a",
+      "c",
+    ]);
   });
 
   it("filters by ownership and archived view", () => {
-    expect(buildBusinessPortfolio(entities, { ownership: "shared" }).businesses.map((b) => b.id)).toEqual(["b"]);
-    expect(buildBusinessPortfolio(entities, { ownership: "unknown" }).businesses.map((b) => b.id)).toEqual(["c"]);
-    expect(buildBusinessPortfolio(entities, { view: "archived" }).businesses.map((b) => b.id)).toEqual(["d"]);
+    expect(
+      buildBusinessPortfolio(entities, { ownership: "shared" }).businesses.map((b) => b.id),
+    ).toEqual(["b"]);
+    expect(
+      buildBusinessPortfolio(entities, { ownership: "unknown" }).businesses.map((b) => b.id),
+    ).toEqual(["c"]);
+    expect(
+      buildBusinessPortfolio(entities, { view: "archived" }).businesses.map((b) => b.id),
+    ).toEqual(["d"]);
   });
 
   it("labels owner share", () => {

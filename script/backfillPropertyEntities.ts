@@ -53,7 +53,9 @@ function entityIdFor(ownerId: string, entityType: EntityType, key: string): stri
 
 async function main() {
   const nowIso = new Date().toISOString();
-  console.log(`${TAG} mode=${COMMIT ? "COMMIT" : "dry-run"} project=${process.env.FIREBASE_PROJECT_ID ?? "(default)"}`);
+  console.log(
+    `${TAG} mode=${COMMIT ? "COMMIT" : "dry-run"} project=${process.env.FIREBASE_PROJECT_ID ?? "(default)"}`,
+  );
 
   // 1. Scan.
   const propSnap = await db().collection(COL.properties).get();
@@ -71,7 +73,9 @@ async function main() {
   });
   const entitySnap = await db().collection(COL.entities).get();
   const existingEntities = entitySnap.docs.map((d) => ({ ...(d.data() as Entity), id: d.id }));
-  console.log(`${TAG} scanned properties=${properties.length} existingEntities=${existingEntities.length}`);
+  console.log(
+    `${TAG} scanned properties=${properties.length} existingEntities=${existingEntities.length}`,
+  );
 
   // 2. Plan.
   const plan = planEntityBackfill({ properties, existingEntities, idFor: entityIdFor, nowIso });
@@ -102,10 +106,13 @@ async function main() {
   if (VERBOSE) {
     console.log(`\n${TAG} per-property:`);
     for (const l of plan.links) {
-      console.log(`  link     ${l.propertyId} → ${l.entityId}${l.existingEntity ? " (existing)" : " (new)"}`);
+      console.log(
+        `  link     ${l.propertyId} → ${l.entityId}${l.existingEntity ? " (existing)" : " (new)"}`,
+      );
     }
     for (const p of plan.preserved) console.log(`  keep     ${p.propertyId} → ${p.entityId}`);
-    for (const s of plan.skipped) console.log(`  skip     ${s.propertyId} owner=${s.ownerId ?? "—"} (${s.reason})`);
+    for (const s of plan.skipped)
+      console.log(`  skip     ${s.propertyId} owner=${s.ownerId ?? "—"} (${s.reason})`);
   }
 
   // 4. Write: entities first, then links.
@@ -119,7 +126,8 @@ async function main() {
         await db().collection(COL.entities).doc(e.id).create(e);
         entitiesCreated++;
       } catch (err) {
-        if ((err as { code?: number }).code === 6) entitiesAlreadyPresent++; // ALREADY_EXISTS → reuse
+        if ((err as { code?: number }).code === 6)
+          entitiesAlreadyPresent++; // ALREADY_EXISTS → reuse
         else throw err;
       }
     }
@@ -140,7 +148,9 @@ async function main() {
       } catch (err) {
         // A property changed since the scan — leave the whole chunk for a re-run.
         linkBatchesFailed++;
-        console.warn(`${TAG} link batch ${i / BATCH + 1} not applied (re-run to resume): ${(err as Error).message}`);
+        console.warn(
+          `${TAG} link batch ${i / BATCH + 1} not applied (re-run to resume): ${(err as Error).message}`,
+        );
       }
     }
   }

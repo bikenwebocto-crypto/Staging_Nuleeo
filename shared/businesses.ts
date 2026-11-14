@@ -11,7 +11,11 @@ import type { Entity, EntityStatus } from "./firestore-schema";
 
 // ── Enumerations ────────────────────────────────────────────────────────
 export type BusinessType = "LIMITED_COMPANY" | "SELF_EMPLOYED" | "PARTNERSHIP";
-export const BUSINESS_TYPES: readonly BusinessType[] = ["LIMITED_COMPANY", "SELF_EMPLOYED", "PARTNERSHIP"];
+export const BUSINESS_TYPES: readonly BusinessType[] = [
+  "LIMITED_COMPANY",
+  "SELF_EMPLOYED",
+  "PARTNERSHIP",
+];
 export const BUSINESS_TYPE_LABEL: Record<BusinessType, string> = {
   LIMITED_COMPANY: "Limited company",
   SELF_EMPLOYED: "Self-employed",
@@ -175,7 +179,8 @@ export function validateWizardStep(step: WizardStep, d: BusinessWizardData): Fie
     if (typeof d.vatRegistered !== "boolean") e.vatRegistered = "Tell us if you're VAT registered";
     if (d.vatRegistered) {
       if (!d.vatNumber?.trim()) e.vatNumber = "Enter the VAT number";
-      if (!isIn(VAT_FILING_PERIODS, d.vatFilingPeriod)) e.vatFilingPeriod = "Choose a filing period";
+      if (!isIn(VAT_FILING_PERIODS, d.vatFilingPeriod))
+        e.vatFilingPeriod = "Choose a filing period";
       len("vatNumber");
     }
     if (!isValidYearEnd(d.financialYearEnd)) e.financialYearEnd = "Choose the financial year end";
@@ -277,7 +282,9 @@ export function buildBusinessEntityFields(
       ...(typeof d.sharePercent === "number" ? { creatorSharePercent: d.sharePercent } : {}),
       bankingPreference: d.bankingPreference!,
       bankingStatus: "NOT_STARTED",
-      ...(d.accountantEmail?.trim() ? { accountantEmail: d.accountantEmail.trim().toLowerCase() } : {}),
+      ...(d.accountantEmail?.trim()
+        ? { accountantEmail: d.accountantEmail.trim().toLowerCase() }
+        : {}),
       // Always starts SETTING_UP; activation needs conditions (e.g. a live
       // bank account) that no provider can confirm yet.
       status: "SETTING_UP",
@@ -334,7 +341,10 @@ export function buildBusinessEdit(
     if (!rawKeys.includes(k)) continue;
     (merged as Record<string, unknown>)[k] = patch[k]; // undefined clears
   }
-  const errors: FieldErrors = { ...validateWizardStep(1, merged), ...validateWizardStep(2, merged) };
+  const errors: FieldErrors = {
+    ...validateWizardStep(1, merged),
+    ...validateWizardStep(2, merged),
+  };
   if (merged.accountantEmail && !EMAIL_RE.test(merged.accountantEmail)) {
     errors.accountantEmail = "Enter a valid email";
   }
@@ -352,7 +362,10 @@ export function buildBusinessEdit(
     financialYearEnd: merged.financialYearEnd,
   };
   const remove: (keyof Entity)[] = [];
-  const opt = (k: "tradingName" | "registrationNumber" | "accountantEmail", v: string | undefined) => {
+  const opt = (
+    k: "tradingName" | "registrationNumber" | "accountantEmail",
+    v: string | undefined,
+  ) => {
     if (v) (set as Record<string, unknown>)[k] = v;
     else remove.push(k);
   };
@@ -423,11 +436,7 @@ export function toBusinessListItem(e: Entity): BusinessListItem {
     typeof share !== "number" ? "unknown" : share >= 100 ? "sole" : "shared";
   const roleLabel = e.creatorRole ? BUSINESS_ROLE_LABEL[e.creatorRole] : null;
   const ownerLabel =
-    typeof share === "number"
-      ? `You · ${share}%`
-      : roleLabel
-        ? `You · ${roleLabel}`
-        : "You";
+    typeof share === "number" ? `You · ${share}%` : roleLabel ? `You · ${roleLabel}` : "You";
   return {
     id: e.id,
     name: e.name,

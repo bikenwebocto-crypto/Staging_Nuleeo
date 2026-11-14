@@ -16,8 +16,14 @@ const ctx = (over: Partial<ShareholderContext> = {}): ShareholderContext => ({
   otherHoldings: [],
   ...over,
 });
-const v = (rows: unknown[], complete = false, c = ctx()) => validateShareholders(rows, c, { complete });
-const you = (percent: number, role?: string) => ({ holderType: "PERSON", holderUserId: "alice", percent, role });
+const v = (rows: unknown[], complete = false, c = ctx()) =>
+  validateShareholders(rows, c, { complete });
+const you = (percent: number, role?: string) => ({
+  holderType: "PERSON",
+  holderUserId: "alice",
+  percent,
+  role,
+});
 
 describe("validateShareholders — allocation", () => {
   it("accepts a partial allocation when not confirming", () => {
@@ -26,9 +32,19 @@ describe("validateShareholders — allocation", () => {
   });
 
   it("requires exactly 100% to confirm", () => {
-    expect(v([you(60)], true)).toMatchObject({ ok: false, error: expect.stringMatching(/must total 100/) });
+    expect(v([you(60)], true)).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/must total 100/),
+    });
     expect(
-      v([you(60), { holderType: "PERSON", holderName: "Maria", percent: 25 }, { holderType: "ENTITY", holderEntityId: "B", percent: 15 }], true),
+      v(
+        [
+          you(60),
+          { holderType: "PERSON", holderName: "Maria", percent: 25 },
+          { holderType: "ENTITY", holderEntityId: "B", percent: 15 },
+        ],
+        true,
+      ),
     ).toMatchObject({ ok: true, total: 100 });
   });
 
@@ -46,7 +62,9 @@ describe("validateShareholders — allocation", () => {
   });
 
   it("never allows more than 100%", () => {
-    expect(v([you(70), { holderType: "PERSON", holderName: "X", percent: 40 }])).toMatchObject({ ok: false });
+    expect(v([you(70), { holderType: "PERSON", holderName: "X", percent: 40 }])).toMatchObject({
+      ok: false,
+    });
   });
 
   it.each([
@@ -98,8 +116,12 @@ describe("validateShareholders — duplicates & relationships", () => {
 
   it("rejects circular ownership (direct and indirect)", () => {
     // A owns B → B cannot own A.
-    const direct = ctx({ otherHoldings: [{ entityId: "B", holderType: "ENTITY", holderEntityId: "A" }] });
-    expect(v([{ holderType: "ENTITY", holderEntityId: "B", percent: 10 }], false, direct)).toMatchObject({
+    const direct = ctx({
+      otherHoldings: [{ entityId: "B", holderType: "ENTITY", holderEntityId: "A" }],
+    });
+    expect(
+      v([{ holderType: "ENTITY", holderEntityId: "B", percent: 10 }], false, direct),
+    ).toMatchObject({
       ok: false,
       error: expect.stringMatching(/circular/),
     });
@@ -110,7 +132,9 @@ describe("validateShareholders — duplicates & relationships", () => {
         { entityId: "C", holderType: "ENTITY", holderEntityId: "B" },
       ],
     });
-    expect(v([{ holderType: "ENTITY", holderEntityId: "C", percent: 10 }], false, indirect).ok).toBe(false);
+    expect(
+      v([{ holderType: "ENTITY", holderEntityId: "C", percent: 10 }], false, indirect).ok,
+    ).toBe(false);
     // Unrelated chain is fine.
     expect(v([{ holderType: "ENTITY", holderEntityId: "C", percent: 10 }]).ok).toBe(true);
   });
@@ -140,7 +164,10 @@ const biz = (over: Partial<Entity> = {}): Entity => ({
 describe("buildBusinessEdit", () => {
   it("re-validates merged details and clears VAT fields when deregistered", () => {
     const r = buildBusinessEdit(biz(), { vatRegistered: false }, ["vatRegistered"]);
-    expect(r).toMatchObject({ ok: true, remove: expect.arrayContaining(["vatNumber", "vatFilingPeriod"]) });
+    expect(r).toMatchObject({
+      ok: true,
+      remove: expect.arrayContaining(["vatNumber", "vatFilingPeriod"]),
+    });
   });
   it("rejects an edit that breaks a required field", () => {
     expect(buildBusinessEdit(biz(), {}, ["legalName"])).toMatchObject({ ok: false });
@@ -153,7 +180,11 @@ describe("buildBusinessEdit", () => {
 
 describe("buildNotifications", () => {
   it("flags incomplete allocation and pending banking", () => {
-    const n = buildNotifications(biz({ bankingPreference: "PAYABL_ACCOUNT", bankingStatus: "NOT_STARTED" }), 60, false);
+    const n = buildNotifications(
+      biz({ bankingPreference: "PAYABL_ACCOUNT", bankingStatus: "NOT_STARTED" }),
+      60,
+      false,
+    );
     expect(n.map((x) => x.id)).toEqual(["allocation", "banking"]);
     expect(n[0].body).toMatch(/remaining 40%/);
   });

@@ -35,8 +35,14 @@ describe("classifyProperty", () => {
     [{ id: "p", ownershipType: "company", companyName: "A" }, "no_owner"],
     [{ id: "p", ownerId: "u", companyName: "A" }, "no_ownership_type"],
     [{ id: "p", ownerId: "u" }, "no_ownership_type"],
-    [{ id: "p", ownerId: "u", ownershipType: "company", companyName: "  " }, "company_without_name"],
-    [{ id: "p", ownerId: "u", ownershipType: "individual", companyName: "A" }, "individual_with_company_name"],
+    [
+      { id: "p", ownerId: "u", ownershipType: "company", companyName: "  " },
+      "company_without_name",
+    ],
+    [
+      { id: "p", ownerId: "u", ownershipType: "individual", companyName: "A" },
+      "individual_with_company_name",
+    ],
     [{ id: "p", ownerId: "u", ownershipType: "trust" }, "unknown_ownership_type"],
   ])("skips ambiguous %j", (p, reason) => {
     expect(classifyProperty(p as BackfillProperty)).toEqual({ kind: "skip", reason });
@@ -75,13 +81,17 @@ describe("planEntityBackfill", () => {
       { id: "p2", ownerId: "u1", ownershipType: "individual" },
       { id: "p3", ownerId: "u1" },
     ]);
-    expect(r.creates).toEqual([expect.objectContaining({ entityType: "PERSONAL", name: "Personal" })]);
+    expect(r.creates).toEqual([
+      expect.objectContaining({ entityType: "PERSONAL", name: "Personal" }),
+    ]);
     expect(r.links).toHaveLength(2);
     expect(r.skipped).toEqual([{ propertyId: "p3", ownerId: "u1", reason: "no_ownership_type" }]);
   });
 
   it("preserves existing entityId values", () => {
-    const r = plan([{ id: "p1", ownerId: "u1", ownershipType: "company", companyName: "X", entityId: "keep" }]);
+    const r = plan([
+      { id: "p1", ownerId: "u1", ownershipType: "company", companyName: "X", entityId: "keep" },
+    ]);
     expect(r.preserved).toEqual([{ propertyId: "p1", entityId: "keep" }]);
     expect(r.creates).toHaveLength(0);
     expect(r.links).toHaveLength(0);
@@ -107,7 +117,9 @@ describe("planEntityBackfill", () => {
       [{ id: "p1", ownerId: "u1", ownershipType: "company", companyName: "Acme Ltd" }],
       [entity({ id: "a" }), entity({ id: "b", name: "x", legacyCompanyName: "acme ltd" })],
     );
-    expect(r.skipped).toEqual([{ propertyId: "p1", ownerId: "u1", reason: "multiple_matching_entities" }]);
+    expect(r.skipped).toEqual([
+      { propertyId: "p1", ownerId: "u1", reason: "multiple_matching_entities" },
+    ]);
   });
 
   it("is idempotent: a second plan over the result does nothing new", () => {

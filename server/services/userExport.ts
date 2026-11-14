@@ -111,7 +111,10 @@ export async function exportUserData(userId: string): Promise<UserDataExport> {
   // Workspaces the user owns (name + type; no other personal data).
   const ownedWorkspaces = await dbi.collection(COL.workspaces).where("ownerId", "==", userId).get();
   const ownedEntities = await dbi.collection(COL.entities).where("ownerId", "==", userId).get();
-  const ownedShareholdings = await dbi.collection(COL.shareholdings).where("ownerId", "==", userId).get();
+  const ownedShareholdings = await dbi
+    .collection(COL.shareholdings)
+    .where("ownerId", "==", userId)
+    .get();
 
   // Saved cards: include the user's own card metadata (brand/last4/expiry) but
   // strip the internal Stripe payment-method token from their copy.

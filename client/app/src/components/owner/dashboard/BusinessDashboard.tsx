@@ -1,5 +1,13 @@
 import { Link } from "wouter";
-import { Building2, Calculator, Handshake, MessageCircle, Plus, RefreshCw, User } from "lucide-react";
+import {
+  Building2,
+  Calculator,
+  Handshake,
+  MessageCircle,
+  Plus,
+  RefreshCw,
+  User,
+} from "lucide-react";
 import type { WorkspaceListEntry } from "@shared/workspaces";
 import { ENTITY_STATUS_LABEL, ENTITY_TYPE_LABEL } from "@shared/entities";
 import { WorkspaceGlyph, workspaceSubtitle } from "@/components/owner/workspace/workspaceDisplay";
@@ -10,7 +18,12 @@ import { CARD } from "./tokens";
 // are owner-scoped and shared with the real-estate workspace) plus tools.
 // Ledgers, banking, VAT and reports are not built yet, so no figures are shown.
 const TOOLS = [
-  { href: "/calculator", icon: Calculator, title: "Smart Calculator", hint: "Yield, LTV and affordability" },
+  {
+    href: "/calculator",
+    icon: Calculator,
+    title: "Smart Calculator",
+    hint: "Yield, LTV and affordability",
+  },
   { href: "/network", icon: Handshake, title: "Network", hint: "Lenders, legal and accounting" },
   { href: "/owner/messages", icon: MessageCircle, title: "Messages", hint: "Your conversations" },
 ];
@@ -28,7 +41,9 @@ export function BusinessDashboard({ workspace }: { workspace: WorkspaceListEntry
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-[#F4F4F2]">{workspace.name}</h1>
+            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-[#F4F4F2]">
+              {workspace.name}
+            </h1>
             <p className="mt-1 text-sm text-[#A3A7AB]">{workspaceSubtitle(workspace)}</p>
           </div>
           <div className="flex gap-2">
@@ -87,21 +102,33 @@ export function BusinessDashboard({ workspace }: { workspace: WorkspaceListEntry
               {entities.map((e) => {
                 const Icon = e.entityType === "PERSONAL" ? User : Building2;
                 return (
-                  <li key={e.id} className="flex items-center gap-3 rounded-2xl bg-[#1C2325] px-4 py-3">
+                  <li
+                    key={e.id}
+                    className="flex items-center gap-3 rounded-2xl bg-[#1C2325] px-4 py-3"
+                  >
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-[#F4F4F2]">
                       <Icon size={18} aria-hidden="true" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-[#F4F4F2]">{e.name}</span>
+                      <span className="block truncate text-sm font-semibold text-[#F4F4F2]">
+                        {e.name}
+                      </span>
                       <span className="block truncate text-xs text-[#A3A7AB]">
-                        {[ENTITY_TYPE_LABEL[e.entityType], e.registrationNumber, e.vatNumber && `VAT ${e.vatNumber}`]
+                        {[
+                          ENTITY_TYPE_LABEL[e.entityType],
+                          e.registrationNumber,
+                          e.vatNumber && `VAT ${e.vatNumber}`,
+                        ]
                           .filter(Boolean)
                           .join(" · ")}
                       </span>
                     </span>
                     <span
                       className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold"
-                      style={{ color: STATUS_TONE[e.status], backgroundColor: `${STATUS_TONE[e.status]}1F` }}
+                      style={{
+                        color: STATUS_TONE[e.status],
+                        backgroundColor: `${STATUS_TONE[e.status]}1F`,
+                      }}
                     >
                       {ENTITY_STATUS_LABEL[e.status]}
                     </span>
@@ -130,7 +157,6 @@ export function BusinessDashboard({ workspace }: { workspace: WorkspaceListEntry
           ))}
         </section>
       </div>
-
     </main>
   );
 }

@@ -20,7 +20,9 @@ vi.mock("@/lib/businesses", () => ({
     isError: false,
     isSuccess: false,
   }),
-  useDiscardBusinessDraft: () => ({ mutate: (_: unknown, o?: { onSettled?: () => void }) => o?.onSettled?.() }),
+  useDiscardBusinessDraft: () => ({
+    mutate: (_: unknown, o?: { onSettled?: () => void }) => o?.onSettled?.(),
+  }),
   useCreateBusiness: () => ({
     isPending: state.createPending,
     mutate: (
@@ -45,7 +47,8 @@ const radio = (name: string) =>
   fireEvent.click(screen.getAllByRole("radio", { name: new RegExp(`^${name}`) })[0]);
 const type = (label: RegExp, value: string) =>
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
-const next = () => fireEvent.click(screen.getByRole("button", { name: /^(Continue|Add business)$/ }));
+const next = () =>
+  fireEvent.click(screen.getByRole("button", { name: /^(Continue|Add business)$/ }));
 
 beforeEach(() => {
   state.draft = null;
@@ -79,13 +82,19 @@ describe("AddBusinessWizard", () => {
   it("self-employed doesn't need a registration number", () => {
     render(<AddBusinessWizard />);
     fillStep1(true);
-    expect(screen.getByLabelText(/Registration number/).closest("div")?.textContent).toMatch(/optional/);
+    expect(screen.getByLabelText(/Registration number/).closest("div")?.textContent).toMatch(
+      /optional/,
+    );
     next();
     expect(screen.getByText("Step 2 of 4")).toBeTruthy();
   });
 
   it("shows VAT number and filing period only when VAT registered", () => {
-    state.draft = { step: 2, data: { businessType: "SELF_EMPLOYED", legalName: "Jo", country: "GB" }, updatedAt: "" };
+    state.draft = {
+      step: 2,
+      data: { businessType: "SELF_EMPLOYED", legalName: "Jo", country: "GB" },
+      updatedAt: "",
+    };
     render(<AddBusinessWizard />);
     expect(screen.queryByLabelText(/VAT number/)).toBeNull();
     radio("Yes");
@@ -102,7 +111,10 @@ describe("AddBusinessWizard", () => {
     expect(screen.getByText(/picked up where you left off/)).toBeTruthy();
     radio("Director");
     act(() => vi.advanceTimersByTime(900));
-    expect(state.saved.at(-1)).toMatchObject({ step: 3, data: { legalName: "Saved Co", role: "DIRECTOR" } });
+    expect(state.saved.at(-1)).toMatchObject({
+      step: 3,
+      data: { legalName: "Saved Co", role: "DIRECTOR" },
+    });
   });
 
   it("allows a share below 100% and submits once, then shows honest banking status", () => {
@@ -132,6 +144,8 @@ describe("AddBusinessWizard", () => {
     expect(screen.getByText("Business added")).toBeTruthy();
     expect(screen.getByText("Acme Holdings Ltd")).toBeTruthy();
     expect(screen.getByText(/No application has been sent/)).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Open business" }).getAttribute("href")).toBe("/business/biz_1");
+    expect(screen.getByRole("link", { name: "Open business" }).getAttribute("href")).toBe(
+      "/business/biz_1",
+    );
   });
 });

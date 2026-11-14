@@ -14,7 +14,11 @@ function col(name: string): Map<string, Row> {
   if (!c) store.set(name, (c = new Map()));
   return c;
 }
-const snap = (id: string, data: Row | undefined) => ({ id, exists: data !== undefined, data: () => data });
+const snap = (id: string, data: Row | undefined) => ({
+  id,
+  exists: data !== undefined,
+  data: () => data,
+});
 function applyMerge(prev: Row, data: Row): Row {
   const out = { ...prev };
   for (const [k, v] of Object.entries(data)) {
@@ -136,7 +140,9 @@ describe("POST /api/entities/business", () => {
   });
 
   it("requires a submissionId", async () => {
-    expect((await request(app()).post("/api/entities/business").send({ data: DATA })).status).toBe(400);
+    expect((await request(app()).post("/api/entities/business").send({ data: DATA })).status).toBe(
+      400,
+    );
   });
 
   it("is forbidden without the owner experience", async () => {
@@ -150,7 +156,9 @@ describe("POST /api/entities/business", () => {
   it("clears the wizard draft after creation", async () => {
     await request(app()).put("/api/entities/draft").send({ step: 4, data: DATA });
     expect(col("users").get("alice")!.businessDraft).toBeTruthy();
-    await request(app()).post("/api/entities/business").send({ submissionId: "sub-12345678", data: DATA });
+    await request(app())
+      .post("/api/entities/business")
+      .send({ submissionId: "sub-12345678", data: DATA });
     expect(col("users").get("alice")!.businessDraft).toBeUndefined();
   });
 });
@@ -174,7 +182,9 @@ describe("wizard draft", () => {
   });
 
   it("drafts are per-user", async () => {
-    await request(app()).put("/api/entities/draft").send({ step: 1, data: { legalName: "Alice Co" } });
+    await request(app())
+      .put("/api/entities/draft")
+      .send({ step: 1, data: { legalName: "Alice Co" } });
     currentUser = { uid: "bob", profile: { ...OWNER } };
     expect((await request(app()).get("/api/entities/draft")).body.draft).toBeNull();
   });
@@ -182,9 +192,28 @@ describe("wizard draft", () => {
 
 describe("portfolio + detail scoping", () => {
   beforeEach(() => {
-    col("entities").set("a1", { ownerId: "alice", name: "Alpha", entityType: "COMPANY", status: "SETTING_UP", createdAt: "x" });
-    col("entities").set("a2", { ownerId: "alice", name: "Beta", entityType: "COMPANY", status: "ACTIVE", createdAt: "x", archivedAt: "y" });
-    col("entities").set("b1", { ownerId: "bob", name: "Bob Co", entityType: "COMPANY", status: "ACTIVE", createdAt: "x" });
+    col("entities").set("a1", {
+      ownerId: "alice",
+      name: "Alpha",
+      entityType: "COMPANY",
+      status: "SETTING_UP",
+      createdAt: "x",
+    });
+    col("entities").set("a2", {
+      ownerId: "alice",
+      name: "Beta",
+      entityType: "COMPANY",
+      status: "ACTIVE",
+      createdAt: "x",
+      archivedAt: "y",
+    });
+    col("entities").set("b1", {
+      ownerId: "bob",
+      name: "Bob Co",
+      entityType: "COMPANY",
+      status: "ACTIVE",
+      createdAt: "x",
+    });
   });
 
   it("lists only the caller's businesses, with search and views", async () => {

@@ -40,7 +40,10 @@ const TYPE_LABEL: Record<BusinessType, string> = {
 
 const STEP_COPY: Record<WizardStep, { heading: string; sub: string }> = {
   1: { heading: "Business details", sub: "Tell us what kind of business it is." },
-  2: { heading: "Activity & tax", sub: "This sets your default categories and the VAT card on your dashboard." },
+  2: {
+    heading: "Activity & tax",
+    sub: "This sets your default categories and the VAT card on your dashboard.",
+  },
   3: { heading: "Your role & share", sub: "How you're involved, and how much you own." },
   4: { heading: "Money & accountant", sub: "Where the business's money comes in and goes out." },
 };
@@ -48,7 +51,11 @@ const STEP_COPY: Record<WizardStep, { heading: string; sub: string }> = {
 const STEPPER_LABEL = ["Type & name", "Activity & tax", "Role & share", "Money"];
 
 const BANK_OPTIONS: { value: Exclude<BankingPreference, "NONE">; title: string; hint: string }[] = [
-  { value: "PAYABL_ACCOUNT", title: "Open a business account", hint: "IBAN and card with our banking partner payabl." },
+  {
+    value: "PAYABL_ACCOUNT",
+    title: "Open a business account",
+    hint: "IBAN and card with our banking partner payabl.",
+  },
   { value: "OPEN_BANKING", title: "Connect an existing bank", hint: "Bank feed via open banking" },
   { value: "BOTH", title: "Both", hint: "New account plus your existing bank" },
 ];
@@ -130,7 +137,12 @@ function validateStep(
 
   if (step === 2) {
     put("sector", d.sector ? null : "Select what the business does.");
-    put("vatRegistered", typeof d.vatRegistered === "boolean" ? null : "Tell us if the business is registered for VAT.");
+    put(
+      "vatRegistered",
+      typeof d.vatRegistered === "boolean"
+        ? null
+        : "Tell us if the business is registered for VAT.",
+    );
     if (d.vatRegistered) {
       const vat = d.vatNumber?.trim() ?? "";
       const fmt = d.country ? VAT_FORMAT[d.country] : undefined;
@@ -167,10 +179,15 @@ function validateStep(
   if (step === 4) {
     put(
       "bankingPreference",
-      d.bankingPreference && d.bankingPreference !== "NONE" ? null : "Choose how this business handles money.",
+      d.bankingPreference && d.bankingPreference !== "NONE"
+        ? null
+        : "Choose how this business handles money.",
     );
     const email = d.accountantEmail?.trim();
-    put("accountantEmail", email && !EMAIL_RE.test(email) ? "Enter a valid email address." : (e.accountantEmail ?? null));
+    put(
+      "accountantEmail",
+      email && !EMAIL_RE.test(email) ? "Enter a valid email address." : (e.accountantEmail ?? null),
+    );
   }
 
   return e;
@@ -325,7 +342,11 @@ function Stepper({ step, done }: { step: WizardStep; done?: boolean }) {
               {STEPPER_LABEL[i]}
               <span className="sr-only">{complete ? " (done)" : current ? " (current)" : ""}</span>
             </span>
-            {i < WIZARD_STEPS.length - 1 && <span className="hidden text-[#3A4245] sm:inline" aria-hidden="true">·</span>}
+            {i < WIZARD_STEPS.length - 1 && (
+              <span className="hidden text-[#3A4245] sm:inline" aria-hidden="true">
+                ·
+              </span>
+            )}
           </li>
         );
       })}
@@ -333,7 +354,15 @@ function Stepper({ step, done }: { step: WizardStep; done?: boolean }) {
   );
 }
 
-function ConfirmDiscard({ onKeep, onDiscard, busy }: { onKeep: () => void; onDiscard: () => void; busy: boolean }) {
+function ConfirmDiscard({
+  onKeep,
+  onDiscard,
+  busy,
+}: {
+  onKeep: () => void;
+  onDiscard: () => void;
+  busy: boolean;
+}) {
   const keepRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     keepRef.current?.focus();
@@ -342,7 +371,10 @@ function ConfirmDiscard({ onKeep, onDiscard, busy }: { onKeep: () => void; onDis
     return () => window.removeEventListener("keydown", onKey);
   }, [onKeep]);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onClick={onKeep}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+      onClick={onKeep}
+    >
       <div
         role="alertdialog"
         aria-modal="true"
@@ -557,7 +589,13 @@ export default function AddBusinessWizard() {
 
   const regExample = (data.country && REG_FORMAT[data.country]?.example) || "HE 412345";
   const vatExample = (data.country && VAT_FORMAT[data.country]?.example) || "CY10412345X";
-  const saveState = saveDraft.isPending ? "Saving…" : saveDraft.isError ? "Couldn't save draft" : saveDraft.isSuccess ? "Draft saved" : "";
+  const saveState = saveDraft.isPending
+    ? "Saving…"
+    : saveDraft.isError
+      ? "Couldn't save draft"
+      : saveDraft.isSuccess
+        ? "Draft saved"
+        : "";
   const copy = STEP_COPY[step];
 
   return (
@@ -599,7 +637,9 @@ export default function AddBusinessWizard() {
         <main className="mx-auto flex w-full max-w-[640px] flex-col gap-8 px-4 py-10 sm:px-6">
           <div>
             <h1 className="text-[28px] font-semibold tracking-[-0.02em]">Add business</h1>
-            <p className="mt-1 text-sm text-[#A3A7AB]">About 3 minutes. You can finish the details later.</p>
+            <p className="mt-1 text-sm text-[#A3A7AB]">
+              About 3 minutes. You can finish the details later.
+            </p>
             {resumed && step === (draftQuery.data?.draft?.step ?? 0) && (
               <p className="mt-2 text-sm text-[#A3A7AB]">
                 We picked up where you left off.{" "}
@@ -672,7 +712,9 @@ export default function AddBusinessWizard() {
                     value={data.legalName ?? ""}
                     maxLength={Math.min(100, BUSINESS_FIELD_MAX.legalName)}
                     onChange={(e) => set("legalName", e.target.value)}
-                    placeholder={data.businessType === "SELF_EMPLOYED" ? "Your full name" : "Acme Holdings Ltd"}
+                    placeholder={
+                      data.businessType === "SELF_EMPLOYED" ? "Your full name" : "Acme Holdings Ltd"
+                    }
                   />
                 </Field>
                 <Field
@@ -707,7 +749,11 @@ export default function AddBusinessWizard() {
                   </select>
                 </Field>
                 {needsRegistration(data) && (
-                  <Field id="biz-registrationNumber" label="Registration number" error={err("registrationNumber")}>
+                  <Field
+                    id="biz-registrationNumber"
+                    label="Registration number"
+                    error={err("registrationNumber")}
+                  >
                     <input
                       {...aria("registrationNumber")}
                       className={INPUT}
@@ -724,7 +770,9 @@ export default function AddBusinessWizard() {
             {step === 2 && (
               <>
                 <fieldset className="flex flex-col gap-2">
-                  <legend className="mb-2 text-xs font-medium text-[#A3A7AB]">What does the business do?</legend>
+                  <legend className="mb-2 text-xs font-medium text-[#A3A7AB]">
+                    What does the business do?
+                  </legend>
                   <div
                     id="biz-sector"
                     tabIndex={-1}
@@ -741,7 +789,9 @@ export default function AddBusinessWizard() {
                         onClick={() => set("sector", s)}
                         className={cn(
                           "h-10 rounded-full px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A78C68]",
-                          data.sector === s ? "bg-[#E2F645] text-[#060A0B]" : "bg-[#1C2325] text-[#F4F4F2] hover:bg-[#2A3134]",
+                          data.sector === s
+                            ? "bg-[#E2F645] text-[#060A0B]"
+                            : "bg-[#1C2325] text-[#F4F4F2] hover:bg-[#2A3134]",
                         )}
                       >
                         {s}
@@ -752,7 +802,9 @@ export default function AddBusinessWizard() {
                 </fieldset>
 
                 <fieldset className="flex flex-col gap-2">
-                  <legend className="mb-2 text-xs font-medium text-[#A3A7AB]">Registered for VAT?</legend>
+                  <legend className="mb-2 text-xs font-medium text-[#A3A7AB]">
+                    Registered for VAT?
+                  </legend>
                   <div
                     id="biz-vatRegistered"
                     tabIndex={-1}
@@ -763,11 +815,18 @@ export default function AddBusinessWizard() {
                     <Choice
                       selected={data.vatRegistered === true}
                       onSelect={() =>
-                        update({ vatRegistered: true, vatFilingPeriod: data.vatFilingPeriod ?? "QUARTERLY" })
+                        update({
+                          vatRegistered: true,
+                          vatFilingPeriod: data.vatFilingPeriod ?? "QUARTERLY",
+                        })
                       }
                       title="Yes"
                     />
-                    <Choice selected={data.vatRegistered === false} onSelect={() => set("vatRegistered", false)} title="No" />
+                    <Choice
+                      selected={data.vatRegistered === false}
+                      onSelect={() => set("vatRegistered", false)}
+                      title="No"
+                    />
                   </div>
                   <FieldError id="biz-vatRegistered" error={err("vatRegistered")} />
                 </fieldset>
@@ -784,12 +843,21 @@ export default function AddBusinessWizard() {
                         placeholder={vatExample}
                       />
                     </Field>
-                    <Field id="biz-vatFilingPeriod" label="Filing period" error={err("vatFilingPeriod")}>
+                    <Field
+                      id="biz-vatFilingPeriod"
+                      label="Filing period"
+                      error={err("vatFilingPeriod")}
+                    >
                       <select
                         {...aria("vatFilingPeriod")}
                         className={INPUT}
                         value={data.vatFilingPeriod ?? ""}
-                        onChange={(e) => set("vatFilingPeriod", (e.target.value || undefined) as BusinessWizardData["vatFilingPeriod"])}
+                        onChange={(e) =>
+                          set(
+                            "vatFilingPeriod",
+                            (e.target.value || undefined) as BusinessWizardData["vatFilingPeriod"],
+                          )
+                        }
                       >
                         <option value="">Select a filing period</option>
                         {VAT_FILING_PERIODS.map((p) => (
@@ -802,7 +870,11 @@ export default function AddBusinessWizard() {
                   </>
                 )}
 
-                <Field id="biz-financialYearEnd" label="Financial year end" error={err("financialYearEnd")}>
+                <Field
+                  id="biz-financialYearEnd"
+                  label="Financial year end"
+                  error={err("financialYearEnd")}
+                >
                   <div className="grid grid-cols-2 gap-2">
                     <select
                       {...aria("financialYearEnd")}
@@ -812,11 +884,14 @@ export default function AddBusinessWizard() {
                       disabled={!yeMonth}
                       onChange={(e) => setYearEnd(yeMonth, e.target.value)}
                     >
-                      {Array.from({ length: yeMonth ? DAYS_IN_MONTH[Number(yeMonth) - 1] : 31 }, (_, i) => (
-                        <option key={i} value={String(i + 1).padStart(2, "0")}>
-                          {i + 1}
-                        </option>
-                      ))}
+                      {Array.from(
+                        { length: yeMonth ? DAYS_IN_MONTH[Number(yeMonth) - 1] : 31 },
+                        (_, i) => (
+                          <option key={i} value={String(i + 1).padStart(2, "0")}>
+                            {i + 1}
+                          </option>
+                        ),
+                      )}
                     </select>
                     <select
                       aria-label="Month"
@@ -885,7 +960,9 @@ export default function AddBusinessWizard() {
                         }}
                         placeholder="100"
                       />
-                      <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[#7D8287]">%</span>
+                      <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[#7D8287]">
+                        %
+                      </span>
                     </div>
                   </Field>
                 )}
@@ -901,13 +978,17 @@ export default function AddBusinessWizard() {
             {step === 4 && (
               <>
                 <fieldset className="flex flex-col gap-2">
-                  <legend className="mb-2 text-xs font-medium text-[#A3A7AB]">Business account</legend>
+                  <legend className="mb-2 text-xs font-medium text-[#A3A7AB]">
+                    Business account
+                  </legend>
                   <div
                     id="biz-bankingPreference"
                     tabIndex={-1}
                     className="flex flex-col gap-2"
                     role="radiogroup"
-                    aria-describedby={err("bankingPreference") ? "biz-bankingPreference-error" : undefined}
+                    aria-describedby={
+                      err("bankingPreference") ? "biz-bankingPreference-error" : undefined
+                    }
                   >
                     {BANK_OPTIONS.map((o) => (
                       <Choice
@@ -943,7 +1024,10 @@ export default function AddBusinessWizard() {
             )}
 
             {submitError && (
-              <p role="alert" className="rounded-2xl bg-[#FF7A7A]/10 px-4 py-3 text-sm text-[#FF7A7A]">
+              <p
+                role="alert"
+                className="rounded-2xl bg-[#FF7A7A]/10 px-4 py-3 text-sm text-[#FF7A7A]"
+              >
                 {submitError}
               </p>
             )}
@@ -973,7 +1057,9 @@ export default function AddBusinessWizard() {
                 aria-busy={create.isPending}
                 className="flex h-12 min-w-[140px] items-center justify-center gap-2 rounded-full bg-white px-6 text-sm font-semibold text-[#060A0B] hover:brightness-95 disabled:opacity-60"
               >
-                {create.isPending && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
+                {create.isPending && (
+                  <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+                )}
                 {step < 4 ? "Continue" : "Add business"}
               </button>
             </div>
@@ -982,7 +1068,11 @@ export default function AddBusinessWizard() {
       )}
 
       {confirmOpen && (
-        <ConfirmDiscard onKeep={() => setConfirmOpen(false)} onDiscard={discard} busy={discardDraft.isPending} />
+        <ConfirmDiscard
+          onKeep={() => setConfirmOpen(false)}
+          onDiscard={discard}
+          busy={discardDraft.isPending}
+        />
       )}
     </div>
   );

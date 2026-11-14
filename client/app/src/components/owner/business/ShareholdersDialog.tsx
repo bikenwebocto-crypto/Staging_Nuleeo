@@ -53,11 +53,14 @@ function toEditRows(detail: BusinessDetailResponse): EditRow[] {
 }
 
 function toInput(r: EditRow, uid: string): ShareholderRowInput {
-  const percent = r.percentText.trim() === "" ? Number.NaN : Number(r.percentText.replace(",", "."));
+  const percent =
+    r.percentText.trim() === "" ? Number.NaN : Number(r.percentText.replace(",", "."));
   if (r.kind === "ENTITY") return { holderType: "ENTITY", holderEntityId: r.entityId, percent };
   return {
     holderType: "PERSON",
-    ...(r.kind === "YOU" ? { holderUserId: uid } : { holderName: r.name, ...(r.email ? { holderEmail: r.email } : {}) }),
+    ...(r.kind === "YOU"
+      ? { holderUserId: uid }
+      : { holderName: r.name, ...(r.email ? { holderEmail: r.email } : {}) }),
     percent,
     ...(r.role ? { role: r.role } : {}),
   };
@@ -104,7 +107,10 @@ export function ShareholdersDialog({
       {
         callerUid: uid,
         entityId: detail.business.id,
-        ownedEntities: detail.companyOptions.map((c) => ({ id: c.id, entityType: "COMPANY" as const })),
+        ownedEntities: detail.companyOptions.map((c) => ({
+          id: c.id,
+          entityType: "COMPANY" as const,
+        })),
         otherHoldings: [],
       },
       { complete },
@@ -135,17 +141,25 @@ export function ShareholdersDialog({
         <DialogHeader className="text-left">
           <DialogTitle className="text-xl font-semibold">Shareholders</DialogTitle>
           <DialogDescription className="text-sm text-[#A3A7AB]">
-            Who owns {detail.business.name}. Save at any time; confirm once the total is exactly 100%.
+            Who owns {detail.business.name}. Save at any time; confirm once the total is exactly
+            100%.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-2">
           <div className="h-2 overflow-hidden rounded-full bg-[#1C2325]" aria-hidden="true">
-            <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(total, 100)}%`, backgroundColor: tone }} />
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${Math.min(total, 100)}%`, backgroundColor: tone }}
+            />
           </div>
           <p className="text-sm" style={{ color: tone }} aria-live="polite">
             {total}% allocated
-            {total < 100 ? ` · ${remaining}% remaining` : total > 100 ? ` · ${round2(total - 100)}% over` : " · fully allocated"}
+            {total < 100
+              ? ` · ${remaining}% remaining`
+              : total > 100
+                ? ` · ${round2(total - 100)}% over`
+                : " · fully allocated"}
           </p>
         </div>
 
@@ -157,29 +171,62 @@ export function ShareholdersDialog({
                   aria-label={`Shareholder ${i + 1} type`}
                   className={INPUT}
                   value={r.kind}
-                  onChange={(e) => patch(r.key, { kind: e.target.value as Kind, role: e.target.value === "ENTITY" ? "" : r.role })}
+                  onChange={(e) =>
+                    patch(r.key, {
+                      kind: e.target.value as Kind,
+                      role: e.target.value === "ENTITY" ? "" : r.role,
+                    })
+                  }
                 >
-                  <option value="YOU" disabled={hasYou && r.kind !== "YOU"}>You</option>
+                  <option value="YOU" disabled={hasYou && r.kind !== "YOU"}>
+                    You
+                  </option>
                   <option value="PERSON">Person</option>
-                  <option value="ENTITY" disabled={detail.companyOptions.length === 0}>Company</option>
+                  <option value="ENTITY" disabled={detail.companyOptions.length === 0}>
+                    Company
+                  </option>
                 </select>
 
                 {r.kind === "ENTITY" ? (
-                  <select aria-label={`Shareholder ${i + 1} company`} className={INPUT} value={r.entityId} onChange={(e) => patch(r.key, { entityId: e.target.value })}>
+                  <select
+                    aria-label={`Shareholder ${i + 1} company`}
+                    className={INPUT}
+                    value={r.entityId}
+                    onChange={(e) => patch(r.key, { entityId: e.target.value })}
+                  >
                     <option value="">Choose a company…</option>
                     {detail.companyOptions.map((c) => (
-                      <option key={c.id} value={c.id} disabled={usedEntities.has(c.id) && r.entityId !== c.id}>
+                      <option
+                        key={c.id}
+                        value={c.id}
+                        disabled={usedEntities.has(c.id) && r.entityId !== c.id}
+                      >
                         {c.name}
                       </option>
                     ))}
                   </select>
                 ) : r.kind === "PERSON" ? (
                   <div className="grid grid-cols-2 gap-2">
-                    <input aria-label={`Shareholder ${i + 1} name`} className={INPUT} placeholder="Full name" value={r.name} onChange={(e) => patch(r.key, { name: e.target.value })} />
-                    <input aria-label={`Shareholder ${i + 1} email`} className={INPUT} placeholder="Email (optional)" type="email" value={r.email} onChange={(e) => patch(r.key, { email: e.target.value })} />
+                    <input
+                      aria-label={`Shareholder ${i + 1} name`}
+                      className={INPUT}
+                      placeholder="Full name"
+                      value={r.name}
+                      onChange={(e) => patch(r.key, { name: e.target.value })}
+                    />
+                    <input
+                      aria-label={`Shareholder ${i + 1} email`}
+                      className={INPUT}
+                      placeholder="Email (optional)"
+                      type="email"
+                      value={r.email}
+                      onChange={(e) => patch(r.key, { email: e.target.value })}
+                    />
                   </div>
                 ) : (
-                  <span className="flex h-10 items-center px-1 text-sm text-[#A3A7AB]">Your account</span>
+                  <span className="flex h-10 items-center px-1 text-sm text-[#A3A7AB]">
+                    Your account
+                  </span>
                 )}
 
                 <div className="relative">
@@ -191,7 +238,9 @@ export function ShareholdersDialog({
                     onChange={(e) => patch(r.key, { percentText: e.target.value })}
                     placeholder="0"
                   />
-                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[#7D8287]">%</span>
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[#7D8287]">
+                    %
+                  </span>
                 </div>
 
                 <button
@@ -212,11 +261,15 @@ export function ShareholdersDialog({
                 >
                   <option value="">Role (optional)</option>
                   {BUSINESS_ROLES.map((x) => (
-                    <option key={x} value={x}>{BUSINESS_ROLE_LABEL[x]}</option>
+                    <option key={x} value={x}>
+                      {BUSINESS_ROLE_LABEL[x]}
+                    </option>
                   ))}
                 </select>
               )}
-              {rowErrors[r.key] && <p className="mt-2 text-xs text-[#FF7A7A]">{rowErrors[r.key]}</p>}
+              {rowErrors[r.key] && (
+                <p className="mt-2 text-xs text-[#FF7A7A]">{rowErrors[r.key]}</p>
+              )}
             </li>
           ))}
         </ul>
@@ -226,7 +279,15 @@ export function ShareholdersDialog({
           onClick={() =>
             setRows((rs) => [
               ...rs,
-              { key: nextKey++, kind: hasYou ? "PERSON" : "YOU", name: "", email: "", entityId: "", percentText: remaining > 0 ? String(remaining) : "", role: "" },
+              {
+                key: nextKey++,
+                kind: hasYou ? "PERSON" : "YOU",
+                name: "",
+                email: "",
+                entityId: "",
+                percentText: remaining > 0 ? String(remaining) : "",
+                role: "",
+              },
             ])
           }
           className="flex w-fit items-center gap-2 rounded-full bg-[#1C2325] px-4 py-2 text-sm font-semibold hover:bg-[#2A3134]"
@@ -235,11 +296,17 @@ export function ShareholdersDialog({
         </button>
 
         {error && (
-          <p role="alert" className="rounded-2xl bg-[#FF7A7A]/10 px-4 py-3 text-sm text-[#FF7A7A]">{error}</p>
+          <p role="alert" className="rounded-2xl bg-[#FF7A7A]/10 px-4 py-3 text-sm text-[#FF7A7A]">
+            {error}
+          </p>
         )}
 
         <div className="flex flex-wrap gap-3">
-          <button type="button" onClick={() => onOpenChange(false)} className="h-11 rounded-full bg-white/[0.08] px-6 text-sm font-semibold hover:bg-white/[0.12]">
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            className="h-11 rounded-full bg-white/[0.08] px-6 text-sm font-semibold hover:bg-white/[0.12]"
+          >
             Cancel
           </button>
           <button

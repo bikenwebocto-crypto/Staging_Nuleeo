@@ -84,7 +84,8 @@ export function validateShareholders(
   | { ok: true; rows: ShareholderRowInput[]; total: number }
   | { ok: false; error: string; rowErrors: RowError[] } {
   const clean = opts.clean ?? ((s: string) => s);
-  if (!Array.isArray(raw)) return { ok: false, error: "shareholders must be a list", rowErrors: [] };
+  if (!Array.isArray(raw))
+    return { ok: false, error: "shareholders must be a list", rowErrors: [] };
   if (raw.length > MAX_SHAREHOLDERS) {
     return { ok: false, error: `At most ${MAX_SHAREHOLDERS} shareholders`, rowErrors: [] };
   }
@@ -133,15 +134,22 @@ export function validateShareholders(
       // Only the caller can be referenced by account today — never an
       // arbitrary uid from the client.
       if (userId && userId !== ctx.callerUid) return fail("Unknown person");
-      const name = typeof r.holderName === "string" ? clean(r.holderName, HOLDER_NAME_MAX + 1).trim() : "";
+      const name =
+        typeof r.holderName === "string" ? clean(r.holderName, HOLDER_NAME_MAX + 1).trim() : "";
       const email = typeof r.holderEmail === "string" ? r.holderEmail.trim().toLowerCase() : "";
       if (!userId && !name) return fail("Enter the shareholder's name");
-      if (name.length > HOLDER_NAME_MAX) return fail(`Name must be ${HOLDER_NAME_MAX} characters or fewer`);
-      if (email && (!EMAIL_RE.test(email) || email.length > 254)) return fail("Enter a valid email");
+      if (name.length > HOLDER_NAME_MAX)
+        return fail(`Name must be ${HOLDER_NAME_MAX} characters or fewer`);
+      if (email && (!EMAIL_RE.test(email) || email.length > 254))
+        return fail("Enter a valid email");
       if (percent === 0 && role !== "DIRECTOR") {
         return fail("Only a director can hold 0%");
       }
-      const key = userId ? `U:${userId}` : email ? `M:${email}` : `N:${name.toLocaleLowerCase("en")}`;
+      const key = userId
+        ? `U:${userId}`
+        : email
+          ? `M:${email}`
+          : `N:${name.toLocaleLowerCase("en")}`;
       if (seen.has(key)) return fail("This shareholder is already listed");
       seen.add(key);
       rows.push({
@@ -158,9 +166,14 @@ export function validateShareholders(
 
   if (rowErrors.length) return { ok: false, error: rowErrors[0].error, rowErrors };
   const total = allocationTotal(rows);
-  if (total > 100) return { ok: false, error: `Allocated ${total}% — the total can't exceed 100%`, rowErrors: [] };
+  if (total > 100)
+    return { ok: false, error: `Allocated ${total}% — the total can't exceed 100%`, rowErrors: [] };
   if (opts.complete && total !== 100) {
-    return { ok: false, error: `Allocated ${total}% — it must total 100% to confirm`, rowErrors: [] };
+    return {
+      ok: false,
+      error: `Allocated ${total}% — it must total 100% to confirm`,
+      rowErrors: [],
+    };
   }
   return { ok: true, rows, total };
 }
@@ -207,7 +220,11 @@ export interface BusinessDetailResponse {
   companyOptions: { id: string; name: string }[];
 }
 
-export function buildNotifications(b: Entity, allocationTotalPct: number, complete: boolean): BusinessNotification[] {
+export function buildNotifications(
+  b: Entity,
+  allocationTotalPct: number,
+  complete: boolean,
+): BusinessNotification[] {
   const out: BusinessNotification[] = [];
   if (!complete) {
     out.push({
@@ -239,7 +256,11 @@ export function buildNotifications(b: Entity, allocationTotalPct: number, comple
       action: { label: "Edit details", target: "edit" },
     });
   }
-  if (b.bankingPreference && b.bankingPreference !== "NONE" && (b.bankingStatus ?? "NOT_STARTED") === "NOT_STARTED") {
+  if (
+    b.bankingPreference &&
+    b.bankingPreference !== "NONE" &&
+    (b.bankingStatus ?? "NOT_STARTED") === "NOT_STARTED"
+  ) {
     out.push({
       id: "banking",
       tone: "info",

@@ -15,7 +15,11 @@ function col(name: string): Map<string, Row> {
   if (!c) store.set(name, (c = new Map()));
   return c;
 }
-const snap = (id: string, data: Row | undefined) => ({ id, exists: data !== undefined, data: () => data });
+const snap = (id: string, data: Row | undefined) => ({
+  id,
+  exists: data !== undefined,
+  data: () => data,
+});
 function merge(prev: Row, data: Row): Row {
   const out = { ...prev };
   for (const [k, v] of Object.entries(data)) {
@@ -64,7 +68,8 @@ vi.mock("../firebase", () => ({
       const ops: (() => void)[] = [];
       return {
         delete: (r: { __name: string; id: string }) => ops.push(() => col(r.__name).delete(r.id)),
-        set: (r: { __name: string; id: string }, d: Row) => ops.push(() => col(r.__name).set(r.id, d)),
+        set: (r: { __name: string; id: string }, d: Row) =>
+          ops.push(() => col(r.__name).set(r.id, d)),
         update: (r: { __name: string; id: string }, d: Row) =>
           ops.push(() => col(r.__name).set(r.id, merge(col(r.__name).get(r.id) ?? {}, d))),
         commit: async () => ops.forEach((op) => op()),
@@ -114,9 +119,13 @@ describe("authorization", () => {
   it("404s on another owner's business for every route", async () => {
     const a = app();
     expect((await request(a).get("/api/entities/bobco/detail")).status).toBe(404);
-    expect((await request(a).patch("/api/entities/bobco").send({ legalName: "x" })).status).toBe(404);
+    expect((await request(a).patch("/api/entities/bobco").send({ legalName: "x" })).status).toBe(
+      404,
+    );
     expect((await request(a).post("/api/entities/bobco/archive")).status).toBe(404);
-    expect((await request(a).put("/api/entities/bobco/shareholders").send({ shareholders: [] })).status).toBe(404);
+    expect(
+      (await request(a).put("/api/entities/bobco/shareholders").send({ shareholders: [] })).status,
+    ).toBe(404);
     expect(col("entities").get("bobco")!.archivedAt).toBeUndefined();
   });
 
@@ -141,7 +150,11 @@ describe("detail", () => {
       expect.objectContaining({ isYou: true, percent: 60, label: "You (Alice A)" }),
     ]);
     expect(r.body.allocation).toEqual({ total: 60, complete: false });
-    expect(r.body.kpis).toMatchObject({ revenue30d: null, expenses30d: null, profitMarginPct: null });
+    expect(r.body.kpis).toMatchObject({
+      revenue30d: null,
+      expenses30d: null,
+      profitMarginPct: null,
+    });
     expect(r.body.invoices).toMatchObject({ unpaid: null, creationAvailable: false });
     expect(r.body.companyOptions).toEqual([{ id: "holdco", name: "holdco" }]);
   });
@@ -154,15 +167,23 @@ describe("shareholders", () => {
   ];
 
   it("saves, confirms 100%, and replaces the previous set", async () => {
-    const r = await request(app()).put("/api/entities/acme/shareholders").send({ shareholders: full, complete: true });
+    const r = await request(app())
+      .put("/api/entities/acme/shareholders")
+      .send({ shareholders: full, complete: true });
     expect(r.status).toBe(200);
     expect(r.body.allocation).toEqual({ total: 100, complete: true });
     expect(col("shareholdings").size).toBe(2);
-    expect(col("entities").get("acme")).toMatchObject({ ownershipComplete: true, creatorSharePercent: 60 });
+    expect(col("entities").get("acme")).toMatchObject({
+      ownershipComplete: true,
+      creatorSharePercent: 60,
+    });
 
     const r2 = await request(app())
       .put("/api/entities/acme/shareholders")
-      .send({ shareholders: [{ holderType: "PERSON", holderUserId: "alice", percent: 100 }], complete: true });
+      .send({
+        shareholders: [{ holderType: "PERSON", holderUserId: "alice", percent: 100 }],
+        complete: true,
+      });
     expect(r2.status).toBe(200);
     expect(col("shareholdings").size).toBe(1);
   });
@@ -190,16 +211,24 @@ describe("shareholders", () => {
 
   it("can't edit shareholders of an archived business", async () => {
     await request(app()).post("/api/entities/acme/archive");
-    const r = await request(app()).put("/api/entities/acme/shareholders").send({ shareholders: full });
+    const r = await request(app())
+      .put("/api/entities/acme/shareholders")
+      .send({ shareholders: full });
     expect(r.status).toBe(409);
   });
 });
 
 describe("edit + archive", () => {
   it("validates edits server-side", async () => {
-    expect((await request(app()).patch("/api/entities/acme").send({ legalName: "" })).status).toBe(400);
-    expect((await request(app()).patch("/api/entities/acme").send({ vatRegistered: true })).status).toBe(400);
-    const ok = await request(app()).patch("/api/entities/acme").send({ tradingName: "Acme Co", ownerId: "bob" });
+    expect((await request(app()).patch("/api/entities/acme").send({ legalName: "" })).status).toBe(
+      400,
+    );
+    expect(
+      (await request(app()).patch("/api/entities/acme").send({ vatRegistered: true })).status,
+    ).toBe(400);
+    const ok = await request(app())
+      .patch("/api/entities/acme")
+      .send({ tradingName: "Acme Co", ownerId: "bob" });
     expect(ok.status).toBe(200);
     expect(ok.body).toMatchObject({ name: "Acme Co", ownerId: "alice" });
   });

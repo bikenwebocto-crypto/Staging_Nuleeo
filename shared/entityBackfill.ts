@@ -92,11 +92,18 @@ export function planEntityBackfill(input: {
   nowIso: string;
 }): BackfillPlan {
   const { properties, existingEntities, idFor, nowIso } = input;
-  const plan: BackfillPlan = { creates: [], links: [], preserved: [], skipped: [], spellingVariants: [] };
+  const plan: BackfillPlan = {
+    creates: [],
+    links: [],
+    preserved: [],
+    skipped: [],
+    spellingVariants: [],
+  };
 
   // Index existing entities by owner + type + key.
   const existingByKey = new Map<string, Entity[]>();
-  const keyOf = (ownerId: string, type: EntityType, key: string) => `${ownerId}\u0000${type}\u0000${key}`;
+  const keyOf = (ownerId: string, type: EntityType, key: string) =>
+    `${ownerId}\u0000${type}\u0000${key}`;
   for (const e of existingEntities) {
     const key =
       e.entityType === "PERSONAL" ? "" : normalizeCompanyName(e.legacyCompanyName ?? e.name);
@@ -131,7 +138,11 @@ export function planEntityBackfill(input: {
 
     const existing = existingByKey.get(k) ?? [];
     if (existing.length > 1) {
-      plan.skipped.push({ propertyId: p.id, ownerId: c.ownerId, reason: "multiple_matching_entities" });
+      plan.skipped.push({
+        propertyId: p.id,
+        ownerId: c.ownerId,
+        reason: "multiple_matching_entities",
+      });
       continue;
     }
     if (existing.length === 1) {

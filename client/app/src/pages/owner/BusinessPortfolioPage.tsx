@@ -24,7 +24,9 @@ function SummaryCard({ label, value, sub }: { label: string; value: string; sub:
   return (
     <div className={`${CARD} flex min-w-0 flex-col gap-2 p-6`}>
       <p className="text-sm text-[#A3A7AB]">{label}</p>
-      <p className="truncate text-3xl font-semibold tabular-nums tracking-[-0.02em] text-[#F4F4F2]">{value}</p>
+      <p className="truncate text-3xl font-semibold tabular-nums tracking-[-0.02em] text-[#F4F4F2]">
+        {value}
+      </p>
       <p className="truncate text-xs text-[#7D8287]">{sub}</p>
     </div>
   );
@@ -41,15 +43,27 @@ function Summary({ s, loading }: { s?: BusinessPortfolioSummary; loading: boolea
     );
   }
   const money = (v: number | null | undefined) =>
-    v == null ? DASH : new Intl.NumberFormat(undefined, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v);
-  const split = s?.byType.length ? s.byType.map((t) => `${t.count} ${t.label.toLowerCase()}`).join(" · ") : "No businesses yet";
+    v == null
+      ? DASH
+      : new Intl.NumberFormat(undefined, {
+          style: "currency",
+          currency: "EUR",
+          maximumFractionDigits: 0,
+        }).format(v);
+  const split = s?.byType.length
+    ? s.byType.map((t) => `${t.count} ${t.label.toLowerCase()}`).join(" · ")
+    : "No businesses yet";
   return (
     <section aria-label="Portfolio summary" className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
       <SummaryCard label="Total companies" value={String(s?.totalCompanies ?? 0)} sub={split} />
       <SummaryCard
         label="Revenue year to date"
         value={money(s?.revenueYtd)}
-        sub={s?.revenueYtd == null ? "Available once books are connected" : `Last year ${money(s.revenueLastYearSamePeriod)}`}
+        sub={
+          s?.revenueYtd == null
+            ? "Available once books are connected"
+            : `Last year ${money(s.revenueLastYearSamePeriod)}`
+        }
       />
       <SummaryCard
         label="Cash in bank"
@@ -99,7 +113,9 @@ const AddButton = ({ subtle }: { subtle?: boolean }) => (
     href="/business/new"
     className={cn(
       "flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A78C68]",
-      subtle ? "bg-[#1C2325] text-[#F4F4F2] hover:bg-[#2A3134]" : "bg-white text-[#060A0B] hover:brightness-95",
+      subtle
+        ? "bg-[#1C2325] text-[#F4F4F2] hover:bg-[#2A3134]"
+        : "bg-white text-[#060A0B] hover:brightness-95",
     )}
   >
     <Plus size={16} aria-hidden="true" /> Add business
@@ -118,7 +134,11 @@ export default function BusinessPortfolioPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  const { data, isLoading, isError, isFetching, refetch } = useBusinessPortfolio({ q, ownership, view });
+  const { data, isLoading, isError, isFetching, refetch } = useBusinessPortfolio({
+    q,
+    ownership,
+    view,
+  });
   const filtered = q.trim() !== "" || ownership !== "all";
 
   return (
@@ -143,7 +163,11 @@ export default function BusinessPortfolioPage() {
           <div className="flex flex-wrap items-center gap-2">
             <label className="relative min-w-[200px] flex-1">
               <span className="sr-only">Search businesses</span>
-              <Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#7D8287]" aria-hidden="true" />
+              <Search
+                size={16}
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#7D8287]"
+                aria-hidden="true"
+              />
               <input
                 type="search"
                 value={search}
@@ -176,11 +200,15 @@ export default function BusinessPortfolioPage() {
                   onClick={() => setView(v)}
                   className={cn(
                     "h-9 rounded-full px-4 text-sm font-semibold transition-colors",
-                    view === v ? "bg-[#2A3134] text-[#F4F4F2]" : "text-[#A3A7AB] hover:text-[#F4F4F2]",
+                    view === v
+                      ? "bg-[#2A3134] text-[#F4F4F2]"
+                      : "text-[#A3A7AB] hover:text-[#F4F4F2]",
                   )}
                 >
                   {v === "active" ? "Active" : "Archived"}
-                  <span className="ml-1.5 tabular-nums text-[#7D8287]">{data?.counts[v] ?? "·"}</span>
+                  <span className="ml-1.5 tabular-nums text-[#7D8287]">
+                    {data?.counts[v] ?? "·"}
+                  </span>
                 </button>
               ))}
             </div>
@@ -218,7 +246,11 @@ export default function BusinessPortfolioPage() {
             <div className="flex flex-col items-center px-6 py-10 text-center">
               <SearchX size={24} className="text-[#7D8287]" aria-hidden="true" />
               <p className="mt-3 text-sm font-semibold text-[#F4F4F2]">
-                {filtered ? "No businesses match your filters" : view === "archived" ? "No archived businesses" : "No active businesses"}
+                {filtered
+                  ? "No businesses match your filters"
+                  : view === "archived"
+                    ? "No archived businesses"
+                    : "No active businesses"}
               </p>
               {filtered && (
                 <button
@@ -234,8 +266,12 @@ export default function BusinessPortfolioPage() {
               )}
             </div>
           ) : (
-            <ul className={cn("flex flex-col gap-2 transition-opacity", isFetching && "opacity-70")}>
-              {data?.businesses.map((b) => <Row key={b.id} b={b} />)}
+            <ul
+              className={cn("flex flex-col gap-2 transition-opacity", isFetching && "opacity-70")}
+            >
+              {data?.businesses.map((b) => (
+                <Row key={b.id} b={b} />
+              ))}
             </ul>
           )}
         </section>

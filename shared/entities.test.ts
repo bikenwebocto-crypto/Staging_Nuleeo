@@ -7,7 +7,12 @@ const v = (b: unknown) => validateEntityInput(b, TODAY, (s) => s.trim());
 describe("validateEntityInput", () => {
   it("accepts a company with optional fields and defaults status to SETTING_UP", () => {
     expect(
-      v({ entityType: "COMPANY", name: " Acme ", vatNumber: "CY123", incorporationDate: "2020-01-31" }),
+      v({
+        entityType: "COMPANY",
+        name: " Acme ",
+        vatNumber: "CY123",
+        incorporationDate: "2020-01-31",
+      }),
     ).toEqual({
       ok: true,
       value: {

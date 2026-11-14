@@ -60,8 +60,11 @@ function useEntityMutation<TBody, TRes>(id: string, run: (body: TBody) => Promis
   return useMutation<TRes, Error, TBody>({
     mutationFn: run,
     onSuccess: (res) => {
-      if (res && typeof res === "object" && "business" in res) qc.setQueryData([detailKey(id)], res);
-      qc.invalidateQueries({ predicate: (q) => isEntityKey(q.queryKey) && q.queryKey[0] !== BUSINESS_DRAFT_KEY });
+      if (res && typeof res === "object" && "business" in res)
+        qc.setQueryData([detailKey(id)], res);
+      qc.invalidateQueries({
+        predicate: (q) => isEntityKey(q.queryKey) && q.queryKey[0] !== BUSINESS_DRAFT_KEY,
+      });
     },
   });
 }
@@ -74,14 +77,21 @@ export function useUpdateBusiness(id: string) {
 
 export function useArchiveBusiness(id: string) {
   return useEntityMutation<{ archive: boolean }, Entity>(id, async ({ archive }) =>
-    (await apiRequest("POST", `/api/entities/${encodeURIComponent(id)}/${archive ? "archive" : "unarchive"}`)).json(),
+    (
+      await apiRequest(
+        "POST",
+        `/api/entities/${encodeURIComponent(id)}/${archive ? "archive" : "unarchive"}`,
+      )
+    ).json(),
   );
 }
 
 export function useSaveShareholders(id: string) {
-  return useEntityMutation<{ shareholders: ShareholderRowInput[]; complete: boolean }, BusinessDetailResponse>(
-    id,
-    async (body) => (await apiRequest("PUT", `/api/entities/${encodeURIComponent(id)}/shareholders`, body)).json(),
+  return useEntityMutation<
+    { shareholders: ShareholderRowInput[]; complete: boolean },
+    BusinessDetailResponse
+  >(id, async (body) =>
+    (await apiRequest("PUT", `/api/entities/${encodeURIComponent(id)}/shareholders`, body)).json(),
   );
 }
 
@@ -100,7 +110,11 @@ export function useBusinessDraft() {
 
 export function useSaveBusinessDraft() {
   const qc = useQueryClient();
-  return useMutation<{ draft: BusinessDraft }, Error, { step: WizardStep; data: BusinessWizardData }>({
+  return useMutation<
+    { draft: BusinessDraft },
+    Error,
+    { step: WizardStep; data: BusinessWizardData }
+  >({
     mutationFn: async (body) => (await apiRequest("PUT", BUSINESS_DRAFT_KEY, body)).json(),
     onSuccess: (res) => qc.setQueryData([BUSINESS_DRAFT_KEY], res),
   });
@@ -122,7 +136,9 @@ export function useCreateBusiness() {
     mutationFn: async (body) => (await apiRequest("POST", "/api/entities/business", body)).json(),
     onSuccess: () => {
       qc.setQueryData([BUSINESS_DRAFT_KEY], { draft: null });
-      qc.invalidateQueries({ predicate: (q) => isEntityKey(q.queryKey) && q.queryKey[0] !== BUSINESS_DRAFT_KEY });
+      qc.invalidateQueries({
+        predicate: (q) => isEntityKey(q.queryKey) && q.queryKey[0] !== BUSINESS_DRAFT_KEY,
+      });
     },
   });
 }

@@ -55,15 +55,38 @@ type Tab = (typeof TABS)[number];
 const money = (v: number | null | undefined) =>
   v == null
     ? DASH
-    : new Intl.NumberFormat(undefined, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v);
+    : new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: "EUR",
+        maximumFractionDigits: 0,
+      }).format(v);
 const date = (iso?: string) =>
-  iso ? new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : DASH;
+  iso
+    ? new Date(iso).toLocaleDateString(undefined, {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : DASH;
 
-function Kpi({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: string }) {
+function Kpi({
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  tone?: string;
+}) {
   return (
     <div className={`${CARD} flex min-w-0 flex-col gap-2 p-6`}>
       <p className="text-sm text-[#A3A7AB]">{label}</p>
-      <p className="truncate text-3xl font-semibold tabular-nums tracking-[-0.02em]" style={{ color: tone ?? "#F4F4F2" }}>
+      <p
+        className="truncate text-3xl font-semibold tabular-nums tracking-[-0.02em]"
+        style={{ color: tone ?? "#F4F4F2" }}
+      >
         {value}
       </p>
       <p className="truncate text-xs text-[#7D8287]">{sub}</p>
@@ -71,7 +94,17 @@ function Kpi({ label, value, sub, tone }: { label: string; value: string; sub: s
   );
 }
 
-function Card({ title, action, children, id }: { title: string; action?: ReactNode; children: ReactNode; id?: string }) {
+function Card({
+  title,
+  action,
+  children,
+  id,
+}: {
+  title: string;
+  action?: ReactNode;
+  children: ReactNode;
+  id?: string;
+}) {
   return (
     <section id={id} aria-label={title} className={`${CARD} flex flex-col gap-4 p-6`}>
       <div className="flex items-center justify-between gap-3">
@@ -83,7 +116,15 @@ function Card({ title, action, children, id }: { title: string; action?: ReactNo
   );
 }
 
-function SmallButton({ onClick, children, disabled }: { onClick?: () => void; children: ReactNode; disabled?: boolean }) {
+function SmallButton({
+  onClick,
+  children,
+  disabled,
+}: {
+  onClick?: () => void;
+  children: ReactNode;
+  disabled?: boolean;
+}) {
   return (
     <button
       type="button"
@@ -138,9 +179,16 @@ function Overview({
           ) : (
             <ul className="flex flex-col gap-2">
               {d.notifications.map((n) => (
-                <li key={n.id} className="flex flex-wrap items-center gap-3 rounded-2xl bg-[#1C2325] px-4 py-3">
+                <li
+                  key={n.id}
+                  className="flex flex-wrap items-center gap-3 rounded-2xl bg-[#1C2325] px-4 py-3"
+                >
                   {n.tone === "warning" ? (
-                    <AlertTriangle size={16} className="shrink-0 text-[#F5B65C]" aria-hidden="true" />
+                    <AlertTriangle
+                      size={16}
+                      className="shrink-0 text-[#F5B65C]"
+                      aria-hidden="true"
+                    />
                   ) : (
                     <Info size={16} className="shrink-0 text-[#73C2CD]" aria-hidden="true" />
                   )}
@@ -149,7 +197,11 @@ function Overview({
                     <span className="block text-xs text-[#A3A7AB]">{n.body}</span>
                   </span>
                   {!(readOnly && n.action.target !== "banking") && (
-                    <button type="button" onClick={() => onAction(n.action.target)} className="text-xs font-semibold text-[#73C2CD] hover:underline">
+                    <button
+                      type="button"
+                      onClick={() => onAction(n.action.target)}
+                      className="text-xs font-semibold text-[#73C2CD] hover:underline"
+                    >
                       {n.action.label}
                     </button>
                   )}
@@ -173,13 +225,25 @@ function Overview({
         <dl className="grid grid-cols-2 gap-4">
           <Detail label="Legal name" value={b.legalName} />
           <Detail label="Trading name" value={b.tradingName} />
-          <Detail label="Type" value={b.businessType ? BUSINESS_TYPE_LABEL[b.businessType] : null} />
-          <Detail label="Country" value={BUSINESS_COUNTRIES.find((c) => c.code === b.country)?.name ?? b.country} />
+          <Detail
+            label="Type"
+            value={b.businessType ? BUSINESS_TYPE_LABEL[b.businessType] : null}
+          />
+          <Detail
+            label="Country"
+            value={BUSINESS_COUNTRIES.find((c) => c.code === b.country)?.name ?? b.country}
+          />
           <Detail label="Registration no." value={b.registrationNumber} />
           <Detail label="Sector" value={b.sector} />
           <Detail
             label="VAT"
-            value={b.vatRegistered == null ? null : b.vatRegistered ? `${b.vatNumber ?? DASH} · ${b.vatFilingPeriod ? VAT_FILING_PERIOD_LABEL[b.vatFilingPeriod] : DASH}` : "Not registered"}
+            value={
+              b.vatRegistered == null
+                ? null
+                : b.vatRegistered
+                  ? `${b.vatNumber ?? DASH} · ${b.vatFilingPeriod ? VAT_FILING_PERIOD_LABEL[b.vatFilingPeriod] : DASH}`
+                  : "Not registered"
+            }
           />
           <Detail label="Year end" value={yearEnd} />
           <Detail label="Accountant" value={b.accountantEmail} />
@@ -200,11 +264,15 @@ function Overview({
           <div className="h-2 overflow-hidden rounded-full bg-[#1C2325]" aria-hidden="true">
             <div
               className="h-full rounded-full"
-              style={{ width: `${Math.min(d.allocation.total, 100)}%`, backgroundColor: d.allocation.complete ? "#7BD88F" : "#F5B65C" }}
+              style={{
+                width: `${Math.min(d.allocation.total, 100)}%`,
+                backgroundColor: d.allocation.complete ? "#7BD88F" : "#F5B65C",
+              }}
             />
           </div>
           <p className="mt-2 text-xs text-[#A3A7AB]">
-            {d.allocation.total}% allocated · {d.allocation.complete ? "Confirmed" : "Not confirmed"}
+            {d.allocation.total}% allocated ·{" "}
+            {d.allocation.complete ? "Confirmed" : "Not confirmed"}
           </p>
         </div>
         {d.shareholders.length === 0 ? (
@@ -212,14 +280,25 @@ function Overview({
         ) : (
           <ul className="flex flex-col gap-2">
             {d.shareholders.map((s) => (
-              <li key={s.id} className="flex items-center gap-3 rounded-2xl bg-[#1C2325] px-4 py-2.5">
+              <li
+                key={s.id}
+                className="flex items-center gap-3 rounded-2xl bg-[#1C2325] px-4 py-2.5"
+              >
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-[#F4F4F2]">{s.label}</span>
+                  <span className="block truncate text-sm font-semibold text-[#F4F4F2]">
+                    {s.label}
+                  </span>
                   <span className="block truncate text-xs text-[#A3A7AB]">
-                    {s.holderType === "ENTITY" ? "Company" : s.role ? BUSINESS_ROLE_LABEL[s.role] : "Individual"}
+                    {s.holderType === "ENTITY"
+                      ? "Company"
+                      : s.role
+                        ? BUSINESS_ROLE_LABEL[s.role]
+                        : "Individual"}
                   </span>
                 </span>
-                <span className="text-sm font-semibold tabular-nums text-[#F4F4F2]">{s.percent}%</span>
+                <span className="text-sm font-semibold tabular-nums text-[#F4F4F2]">
+                  {s.percent}%
+                </span>
               </li>
             ))}
           </ul>
@@ -258,10 +337,18 @@ function Invoices() {
       <div className="grid gap-5 sm:grid-cols-3">
         <Kpi label="Unpaid" value={DASH} sub="— invoices" />
         <Kpi label="Overdue" value={DASH} sub="— invoices" />
-        <Kpi label="Paid this month" value={DASH} sub="Transfers between your companies aren't counted" />
+        <Kpi
+          label="Paid this month"
+          value={DASH}
+          sub="Transfers between your companies aren't counted"
+        />
       </div>
       <section aria-label="Invoices" className={`${CARD} flex flex-col gap-4 p-6`}>
-        <div role="tablist" aria-label="Invoice status" className="flex w-fit rounded-full bg-[#1C2325] p-1">
+        <div
+          role="tablist"
+          aria-label="Invoice status"
+          className="flex w-fit rounded-full bg-[#1C2325] p-1"
+        >
           {(["All", "Unpaid", "Overdue", "Paid"] as const).map((f) => (
             <button
               key={f}
@@ -271,7 +358,9 @@ function Invoices() {
               onClick={() => setFilter(f)}
               className={cn(
                 "h-9 rounded-full px-4 text-sm font-semibold",
-                filter === f ? "bg-[#2A3134] text-[#F4F4F2]" : "text-[#A3A7AB] hover:text-[#F4F4F2]",
+                filter === f
+                  ? "bg-[#2A3134] text-[#F4F4F2]"
+                  : "text-[#A3A7AB] hover:text-[#F4F4F2]",
               )}
             >
               {f}
@@ -298,12 +387,25 @@ function Invoices() {
             </tbody>
           </table>
         </div>
-        <nav aria-label="Invoice pages" className="flex items-center justify-end gap-2 text-xs text-[#7D8287]">
-          <button type="button" disabled aria-label="Previous page" className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1C2325] opacity-50">
+        <nav
+          aria-label="Invoice pages"
+          className="flex items-center justify-end gap-2 text-xs text-[#7D8287]"
+        >
+          <button
+            type="button"
+            disabled
+            aria-label="Previous page"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1C2325] opacity-50"
+          >
             <ChevronLeft size={14} aria-hidden="true" />
           </button>
           <span>Page 1 of 1</span>
-          <button type="button" disabled aria-label="Next page" className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1C2325] opacity-50">
+          <button
+            type="button"
+            disabled
+            aria-label="Next page"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1C2325] opacity-50"
+          >
             <ChevronRight size={14} aria-hidden="true" />
           </button>
         </nav>
@@ -315,9 +417,14 @@ function Invoices() {
 function Activity({ d }: { d: BusinessDetailResponse }) {
   const b = d.business;
   const events = [
-    { at: b.createdAt, label: b.source === "MIGRATED" ? "Imported from your property records" : "Business added" },
+    {
+      at: b.createdAt,
+      label: b.source === "MIGRATED" ? "Imported from your property records" : "Business added",
+    },
     ...(b.archivedAt ? [{ at: b.archivedAt, label: "Archived" }] : []),
-    ...(b.updatedAt && b.updatedAt !== b.createdAt ? [{ at: b.updatedAt, label: "Last updated" }] : []),
+    ...(b.updatedAt && b.updatedAt !== b.createdAt
+      ? [{ at: b.updatedAt, label: "Last updated" }]
+      : []),
   ].sort((x, y) => y.at.localeCompare(x.at));
   return (
     <Card title="Activity">
@@ -329,7 +436,9 @@ function Activity({ d }: { d: BusinessDetailResponse }) {
           </li>
         ))}
       </ul>
-      <p className="text-xs text-[#7D8287]">A full activity history is coming with the business ledger.</p>
+      <p className="text-xs text-[#7D8287]">
+        A full activity history is coming with the business ledger.
+      </p>
     </Card>
   );
 }
@@ -346,7 +455,9 @@ export default function BusinessDetailPage() {
 
   const goBanking = () => {
     setTab("Overview");
-    requestAnimationFrame(() => document.getElementById("business-banking")?.scrollIntoView({ behavior: "smooth" }));
+    requestAnimationFrame(() =>
+      document.getElementById("business-banking")?.scrollIntoView({ behavior: "smooth" }),
+    );
   };
   const onAction = (t: BusinessNotification["action"]["target"]) =>
     t === "edit" ? setEditOpen(true) : t === "shareholders" ? setSharesOpen(true) : goBanking();
@@ -365,7 +476,11 @@ export default function BusinessDetailPage() {
       { archive: archiving },
       {
         onSuccess: () => toast({ title: archiving ? "Business archived" : "Business restored" }),
-        onError: (err) => toast({ title: parseApiError(err, "Couldn't update the business"), variant: "destructive" }),
+        onError: (err) =>
+          toast({
+            title: parseApiError(err, "Couldn't update the business"),
+            variant: "destructive",
+          }),
       },
     );
   };
@@ -375,12 +490,21 @@ export default function BusinessDetailPage() {
   return (
     <main className="min-h-full w-full px-5 py-5 pb-[var(--mobile-nav-clearance)] sm:px-6 sm:py-6 md:pb-8 lg:px-8 lg:py-7">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-5">
-        <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2 text-sm text-[#A3A7AB]">
-          <Link href="/owner" className="hover:text-[#F4F4F2]">Portfolio</Link>
+        <nav
+          aria-label="Breadcrumb"
+          className="flex min-w-0 items-center gap-2 text-sm text-[#A3A7AB]"
+        >
+          <Link href="/owner" className="hover:text-[#F4F4F2]">
+            Portfolio
+          </Link>
           <span aria-hidden="true">/</span>
-          <Link href="/business" className="hover:text-[#F4F4F2]">Companies</Link>
+          <Link href="/business" className="hover:text-[#F4F4F2]">
+            Companies
+          </Link>
           <span aria-hidden="true">/</span>
-          <span className="truncate text-[#F4F4F2]" aria-current="page">{d?.business.name ?? "…"}</span>
+          <span className="truncate text-[#F4F4F2]" aria-current="page">
+            {d?.business.name ?? "…"}
+          </span>
         </nav>
 
         {isLoading ? (
@@ -394,11 +518,22 @@ export default function BusinessDetailPage() {
           </div>
         ) : !d ? (
           <div className={`${CARD} flex flex-col items-start gap-3 p-7`}>
-            <p className="font-semibold text-[#F4F4F2]">{notFound ? "Business not found" : "Couldn't load this business"}</p>
+            <p className="font-semibold text-[#F4F4F2]">
+              {notFound ? "Business not found" : "Couldn't load this business"}
+            </p>
             {notFound ? (
-              <Link href="/business" className="text-sm font-semibold text-[#73C2CD] hover:underline">Back to companies</Link>
+              <Link
+                href="/business"
+                className="text-sm font-semibold text-[#73C2CD] hover:underline"
+              >
+                Back to companies
+              </Link>
             ) : (
-              <button type="button" onClick={() => refetch()} className="flex items-center gap-2 rounded-full bg-[#1C2325] px-4 py-2 text-sm font-semibold text-[#F4F4F2] hover:bg-[#2A3134]">
+              <button
+                type="button"
+                onClick={() => refetch()}
+                className="flex items-center gap-2 rounded-full bg-[#1C2325] px-4 py-2 text-sm font-semibold text-[#F4F4F2] hover:bg-[#2A3134]"
+              >
                 <RefreshCw size={14} aria-hidden="true" /> Retry
               </button>
             )}
@@ -411,12 +546,19 @@ export default function BusinessDetailPage() {
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="truncate text-2xl font-semibold tracking-[-0.02em] text-[#F4F4F2]">{d.business.name}</h1>
+                  <h1 className="truncate text-2xl font-semibold tracking-[-0.02em] text-[#F4F4F2]">
+                    {d.business.name}
+                  </h1>
                   {(() => {
                     const tone = d.business.archivedAt ? "#7D8287" : STATUS_TONE[d.business.status];
                     return (
-                      <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ color: tone, backgroundColor: `${tone}1F` }}>
-                        {d.business.archivedAt ? "Archived" : ENTITY_STATUS_LABEL[d.business.status]}
+                      <span
+                        className="rounded-full px-2.5 py-1 text-[11px] font-semibold"
+                        style={{ color: tone, backgroundColor: `${tone}1F` }}
+                      >
+                        {d.business.archivedAt
+                          ? "Archived"
+                          : ENTITY_STATUS_LABEL[d.business.status]}
                       </span>
                     );
                   })()}
@@ -424,7 +566,9 @@ export default function BusinessDetailPage() {
                 <p className="mt-1 truncate text-sm text-[#A3A7AB]">
                   {[
                     d.business.sector,
-                    d.business.businessType ? BUSINESS_TYPE_LABEL[d.business.businessType] : "Company",
+                    d.business.businessType
+                      ? BUSINESS_TYPE_LABEL[d.business.businessType]
+                      : "Company",
                     `${d.allocation.total}% allocated${d.allocation.complete ? "" : " (unconfirmed)"}`,
                   ]
                     .filter(Boolean)
@@ -442,13 +586,23 @@ export default function BusinessDetailPage() {
                 </span>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button type="button" aria-label="More actions" className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1C2325] text-[#F4F4F2] hover:bg-[#2A3134]">
+                    <button
+                      type="button"
+                      aria-label="More actions"
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1C2325] text-[#F4F4F2] hover:bg-[#2A3134]"
+                    >
                       <MoreHorizontal size={16} aria-hidden="true" />
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="rounded-2xl border-0 bg-[#111618] p-1.5 text-[#F4F4F2]">
+                  <DropdownMenuContent
+                    align="end"
+                    className="rounded-2xl border-0 bg-[#111618] p-1.5 text-[#F4F4F2]"
+                  >
                     {!d.business.archivedAt && (
-                      <DropdownMenuItem onSelect={() => setEditOpen(true)} className="flex cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2 text-[13px] focus:bg-[#1C2325] focus:text-[#F4F4F2]">
+                      <DropdownMenuItem
+                        onSelect={() => setEditOpen(true)}
+                        className="flex cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2 text-[13px] focus:bg-[#1C2325] focus:text-[#F4F4F2]"
+                      >
                         <Pencil size={14} aria-hidden="true" /> Edit details
                       </DropdownMenuItem>
                     )}
@@ -458,9 +612,13 @@ export default function BusinessDetailPage() {
                       className="flex cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2 text-[13px] focus:bg-[#1C2325] focus:text-[#F4F4F2]"
                     >
                       {d.business.archivedAt ? (
-                        <><ArchiveRestore size={14} aria-hidden="true" /> Restore business</>
+                        <>
+                          <ArchiveRestore size={14} aria-hidden="true" /> Restore business
+                        </>
                       ) : (
-                        <><Archive size={14} aria-hidden="true" /> Archive business</>
+                        <>
+                          <Archive size={14} aria-hidden="true" /> Archive business
+                        </>
                       )}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -471,7 +629,11 @@ export default function BusinessDetailPage() {
             <section aria-label="Key figures" className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
               <Kpi label="Revenue" value={money(d.kpis.revenue30d)} sub="Last 30 days" />
               <Kpi label="Expenses" value={money(d.kpis.expenses30d)} sub="Last 30 days" />
-              <Kpi label="Profit margin" value={d.kpis.profitMarginPct == null ? DASH : `${d.kpis.profitMarginPct}%`} sub="Last 30 days" />
+              <Kpi
+                label="Profit margin"
+                value={d.kpis.profitMarginPct == null ? DASH : `${d.kpis.profitMarginPct}%`}
+                sub="Last 30 days"
+              />
               <Kpi
                 label="Needs attention"
                 value={String(d.kpis.needsAttention)}
@@ -480,7 +642,11 @@ export default function BusinessDetailPage() {
               />
             </section>
 
-            <div role="tablist" aria-label="Business sections" className="flex gap-1 overflow-x-auto">
+            <div
+              role="tablist"
+              aria-label="Business sections"
+              className="flex gap-1 overflow-x-auto"
+            >
               {TABS.map((t) => (
                 <button
                   key={t}
@@ -490,7 +656,9 @@ export default function BusinessDetailPage() {
                   onClick={() => setTab(t)}
                   className={cn(
                     "h-10 shrink-0 rounded-full px-4 text-sm font-semibold transition-colors",
-                    tab === t ? "bg-[#1C2325] text-[#F4F4F2]" : "text-[#A3A7AB] hover:text-[#F4F4F2]",
+                    tab === t
+                      ? "bg-[#1C2325] text-[#F4F4F2]"
+                      : "text-[#A3A7AB] hover:text-[#F4F4F2]",
                   )}
                 >
                   {t}
@@ -499,12 +667,22 @@ export default function BusinessDetailPage() {
             </div>
 
             <div role="tabpanel" aria-label={tab}>
-              {tab === "Overview" && <Overview d={d} readOnly={!!d.business.archivedAt} onAction={onAction} />}
+              {tab === "Overview" && (
+                <Overview d={d} readOnly={!!d.business.archivedAt} onAction={onAction} />
+              )}
               {tab === "Financials" && (
-                <Empty icon={FileBarChart} title="No financial data yet" body="Revenue, expenses and profit will appear once the business ledger or a bank account is connected. Transfers between your own companies won't be counted as revenue." />
+                <Empty
+                  icon={FileBarChart}
+                  title="No financial data yet"
+                  body="Revenue, expenses and profit will appear once the business ledger or a bank account is connected. Transfers between your own companies won't be counted as revenue."
+                />
               )}
               {tab === "Documents" && (
-                <Empty icon={FileText} title="No documents yet" body="Company documents — certificates, filings and contracts — will be stored here." />
+                <Empty
+                  icon={FileText}
+                  title="No documents yet"
+                  body="Company documents — certificates, filings and contracts — will be stored here."
+                />
               )}
               {tab === "Activity" && <Activity d={d} />}
               {tab === "Invoices" && <Invoices />}
@@ -512,7 +690,12 @@ export default function BusinessDetailPage() {
 
             <EditBusinessDialog business={d.business} open={editOpen} onOpenChange={setEditOpen} />
             {firebaseUser && (
-              <ShareholdersDialog detail={d} uid={firebaseUser.uid} open={sharesOpen} onOpenChange={setSharesOpen} />
+              <ShareholdersDialog
+                detail={d}
+                uid={firebaseUser.uid}
+                open={sharesOpen}
+                onOpenChange={setSharesOpen}
+              />
             )}
           </>
         )}

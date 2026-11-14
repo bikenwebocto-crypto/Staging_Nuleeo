@@ -374,7 +374,10 @@ export async function deleteUserCascade(userId: string): Promise<UserCascadeResu
   // Entities (companies / personal holding) the user owns.
   const ownedEntities = await dbi.collection(COL.entities).where("ownerId", "==", userId).get();
   // Shareholder tables of those entities (incl. outside individuals' names).
-  const ownedShareholdings = await dbi.collection(COL.shareholdings).where("ownerId", "==", userId).get();
+  const ownedShareholdings = await dbi
+    .collection(COL.shareholdings)
+    .where("ownerId", "==", userId)
+    .get();
 
   // Conversations are handled separately (above + below) so a parent is never
   // deleted ahead of its messages.

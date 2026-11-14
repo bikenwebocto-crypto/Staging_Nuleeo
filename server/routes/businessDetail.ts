@@ -49,12 +49,18 @@ async function isOwner(req: Request): Promise<boolean> {
 
 const notFound = (res: Response) => res.status(404).json({ error: "Business not found" });
 
-async function buildDetail(uid: string, profile: User | undefined, business: Entity): Promise<BusinessDetailResponse> {
+async function buildDetail(
+  uid: string,
+  profile: User | undefined,
+  business: Entity,
+): Promise<BusinessDetailResponse> {
   const [holdingsSnap, entitiesSnap] = await Promise.all([
     db().collection(COL.shareholdings).where("ownerId", "==", uid).get(),
     db().collection(COL.entities).where("ownerId", "==", uid).get(),
   ]);
-  const entities = new Map(entitiesSnap.docs.map((d) => [d.id, { ...(d.data() as Entity), id: d.id }]));
+  const entities = new Map(
+    entitiesSnap.docs.map((d) => [d.id, { ...(d.data() as Entity), id: d.id }]),
+  );
   const rows = holdingsSnap.docs
     .map((d) => ({ ...(d.data() as Shareholding), id: d.id }))
     .filter((h) => h.entityId === business.id);
@@ -72,14 +78,19 @@ async function buildDetail(uid: string, profile: User | undefined, business: Ent
     isYou: h.holderUserId === uid,
     label:
       h.holderUserId === uid
-        ? you ? `You (${you})` : "You"
+        ? you
+          ? `You (${you})`
+          : "You"
         : h.holderType === "ENTITY"
           ? (entities.get(h.holderEntityId ?? "")?.name ?? "Unknown company")
           : (h.holderName ?? "Unnamed"),
   }));
   // Businesses created by the wizard before any shareholder edit: show the
   // creator's recorded role/share (real data, not a placeholder).
-  if (shareholders.length === 0 && (business.creatorRole || typeof business.creatorSharePercent === "number")) {
+  if (
+    shareholders.length === 0 &&
+    (business.creatorRole || typeof business.creatorSharePercent === "number")
+  ) {
     shareholders = [
       {
         id: "creator",
@@ -100,7 +111,12 @@ async function buildDetail(uid: string, profile: User | undefined, business: Ent
     shareholders,
     allocation: { total, complete },
     notifications,
-    kpis: { revenue30d: null, expenses30d: null, profitMarginPct: null, needsAttention: notifications.length },
+    kpis: {
+      revenue30d: null,
+      expenses30d: null,
+      profitMarginPct: null,
+      needsAttention: notifications.length,
+    },
     invoices: { unpaid: null, overdue: null, paidThisMonth: null, creationAvailable: false },
     companyOptions: [...entities.values()]
       .filter((e) => e.entityType === "COMPANY" && e.id !== business.id && !e.archivedAt)
@@ -126,11 +142,18 @@ export function registerBusinessDetailRoutes(app: Express): void {
     try {
       const loaded = await loadOwnBusiness(uid, String(req.params.id));
       if (!loaded.ok) return notFound(res);
-      if (!(await isOwner(req))) return res.status(403).json({ error: "Owner experience required" });
+      if (!(await isOwner(req)))
+        return res.status(403).json({ error: "Owner experience required" });
       const body = (req.body ?? {}) as Record<string, unknown>;
-      const built = buildBusinessEdit(loaded.entity, sanitizeWizardData(body, sanitizeText), Object.keys(body));
+      const built = buildBusinessEdit(
+        loaded.entity,
+        sanitizeWizardData(body, sanitizeText),
+        Object.keys(body),
+      );
       if (!built.ok) {
-        return res.status(400).json({ error: Object.values(built.errors)[0], errors: built.errors });
+        return res
+          .status(400)
+          .json({ error: Object.values(built.errors)[0], errors: built.errors });
       }
       const update: Record<string, unknown> = { ...built.set, updatedAt: new Date().toISOString() };
       for (const k of Object.keys(update)) if (update[k] === undefined) delete update[k];
@@ -150,7 +173,8 @@ export function registerBusinessDetailRoutes(app: Express): void {
       try {
         const loaded = await loadOwnBusiness(uid, String(req.params.id));
         if (!loaded.ok) return notFound(res);
-        if (!(await isOwner(req))) return res.status(403).json({ error: "Owner experience required" });
+        if (!(await isOwner(req)))
+          return res.status(403).json({ error: "Owner experience required" });
         // Soft and reversible: nothing is deleted, shareholdings stay.
         const nowIso = new Date().toISOString();
         const ref = db().collection(COL.entities).doc(loaded.entity.id);
@@ -173,8 +197,10 @@ export function registerBusinessDetailRoutes(app: Express): void {
     try {
       const loaded = await loadOwnBusiness(uid, String(req.params.id));
       if (!loaded.ok) return notFound(res);
-      if (!(await isOwner(req))) return res.status(403).json({ error: "Owner experience required" });
-      if (loaded.entity.archivedAt) return res.status(409).json({ error: "Unarchive the business to edit shareholders" });
+      if (!(await isOwner(req)))
+        return res.status(403).json({ error: "Owner experience required" });
+      if (loaded.entity.archivedAt)
+        return res.status(409).json({ error: "Unarchive the business to edit shareholders" });
 
       const [entitiesSnap, holdingsSnap] = await Promise.all([
         db().collection(COL.entities).where("ownerId", "==", uid).get(),
@@ -191,15 +217,24 @@ export function registerBusinessDetailRoutes(app: Express): void {
         },
         { complete: body.complete === true, clean: sanitizeText },
       );
-      if (!checked.ok) return res.status(400).json({ error: checked.error, rowErrors: checked.rowErrors });
+      if (!checked.ok)
+        return res.status(400).json({ error: checked.error, rowErrors: checked.rowErrors });
 
       const nowIso = new Date().toISOString();
       const col = db().collection(COL.shareholdings);
       const batch = db().batch();
-      for (const h of holdings.filter((x) => x.entityId === loaded.entity.id)) batch.delete(col.doc(h.id));
+      for (const h of holdings.filter((x) => x.entityId === loaded.entity.id))
+        batch.delete(col.doc(h.id));
       for (const r of checked.rows) {
         const ref = col.doc();
-        const row: Shareholding = { ...r, id: ref.id, ownerId: uid, entityId: loaded.entity.id, createdAt: nowIso, updatedAt: nowIso };
+        const row: Shareholding = {
+          ...r,
+          id: ref.id,
+          ownerId: uid,
+          entityId: loaded.entity.id,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+        };
         batch.set(ref, row);
       }
       const self = checked.rows.find((r) => r.holderUserId === uid);

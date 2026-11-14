@@ -57,7 +57,9 @@ function registerBusinessRoutes(app: Express): void {
   app.get("/api/entities/portfolio", requireAuth, async (req, res) => {
     const { uid } = req.user!;
     const q = typeof req.query.q === "string" ? req.query.q.slice(0, 100) : "";
-    const ownership = (["all", "sole", "shared", "unknown"] as const).find((o) => o === req.query.ownership);
+    const ownership = (["all", "sole", "shared", "unknown"] as const).find(
+      (o) => o === req.query.ownership,
+    );
     const view = req.query.view === "archived" ? "archived" : "active";
     try {
       res.json(buildBusinessPortfolio(await loadOwnEntities(uid), { q, ownership, view }));
@@ -173,7 +175,8 @@ function registerBusinessRoutes(app: Express): void {
     try {
       const snap = await db().collection(COL.entities).doc(id).get();
       const e = snap.data() as Entity | undefined;
-      if (!snap.exists || !e || e.ownerId !== uid) return res.status(404).json({ error: "Not found" });
+      if (!snap.exists || !e || e.ownerId !== uid)
+        return res.status(404).json({ error: "Not found" });
       res.json({ ...e, id: snap.id });
     } catch (err: unknown) {
       res.status(500).json({ error: errMsg(err, "Failed to load business") });
