@@ -6,6 +6,16 @@
 // - Money is stored in major units (e.g. 1500 = $1,500), matching the existing UI.
 // - Cross-collection references are stored as `{entity}Id` fields, not DocumentReference.
 
+// Type-only (erased at runtime): business wizard enums live with their logic.
+import type {
+  BankingPreference,
+  BankingStatus,
+  BusinessDraft,
+  BusinessRole,
+  BusinessType,
+  VatFilingPeriod,
+} from "./businesses";
+
 export const COL = {
   users: "users",
   // Banking container for a portfolio (IBAN + Stripe Connect state). Keyed by
@@ -67,6 +77,11 @@ export const COL = {
   // a name + type on top, it does not move or copy any portfolio data. Written
   // only by the Express API (server/services/workspaces.ts). See `Workspace`.
   workspaces: "workspaces",
+  // Legal/ownership entities (companies + the owner's personal holding).
+  // Owner-scoped, NOT workspace-scoped — see `Entity`.
+  entities: "entities",
+  // Who owns what share of an Entity (shared/shareholdings.ts).
+  shareholdings: "shareholdings",
 } as const;
 
 // Tombstone for a hard-deleted user (see COL.deletedUsers). Intentionally holds
@@ -1412,6 +1427,9 @@ export interface User {
   // the selection on a new device. Absent ⇒ default to the user's own
   // real-estate workspace.
   lastWorkspaceId?: string;
+  // In-progress Add Business wizard (one per user), so progress survives
+  // navigation and devices. Cleared when the business is created.
+  businessDraft?: BusinessDraft;
 }
 
 // The banking payload that used to live on `User`, now owned by `Portfolio`.
@@ -1496,6 +1514,66 @@ export interface Workspace {
   updatedAt?: string;
 }
 
+// ── Entities ────────────────────────────────────────────────────────────
+// A legal/ownership entity an owner holds assets through: a COMPANY, or the
+// owner's PERSONAL holding. Entities belong to the OWNER (User.id), never to a
+// workspace, so the same company can appear in both the Real Estate and the
+// Business workspace. Properties link via the optional `Property.entityId`;
+// legacy `Property.companyName` / `ownershipType` stay as the fallback until
+// every row is linked (script/backfillPropertyEntities.ts).
+// Named LegalEntityType: `EntityType` ("person" | "company") already exists
+// for the unrelated User.entityType profile field.
+export type LegalEntityType = "COMPANY" | "PERSONAL";
+export const LEGAL_ENTITY_TYPES: readonly LegalEntityType[] = ["COMPANY", "PERSONAL"];
+export type EntityStatus = "SETTING_UP" | "ACTIVE" | "INACTIVE";
+export const ENTITY_STATUSES: readonly EntityStatus[] = ["SETTING_UP", "ACTIVE", "INACTIVE"];
+// MIGRATED = created by the backfill from Property.companyName / ownershipType.
+export type EntitySource = "MIGRATED" | "MANUAL";
+
+export interface Entity {
+  id: string;
+  ownerId: string; // User.id
+  createdBy: string; // User.id, or "migration:<script>" for backfilled rows
+  name: string;
+  entityType: LegalEntityType;
+  legalName?: string;
+  registrationNumber?: string;
+  vatNumber?: string;
+  sector?: string;
+  address?: string;
+  incorporationDate?: string; // ISO date (YYYY-MM-DD)
+  status: EntityStatus;
+  source: EntitySource;
+  // MIGRATED only: the exact Property.companyName the entity was built from.
+  legacyCompanyName?: string;
+
+  // ── Business fields (Add Business wizard, shared/businesses.ts) ──────
+  // All optional so migrated / manually-added entities stay valid.
+  businessType?: BusinessType;
+  tradingName?: string;
+  country?: string; // ISO-3166 alpha-2
+  vatRegistered?: boolean;
+  vatFilingPeriod?: VatFilingPeriod;
+  financialYearEnd?: string; // "MM-DD"
+  // The creating owner's role and share. Other shareholders are allocated
+  // later (shareholdings are not modelled yet), so < 100 is allowed.
+  creatorRole?: BusinessRole;
+  creatorSharePercent?: number;
+  // Provider-independent banking preference + status. NOT_STARTED until a
+  // provider integration confirms an application.
+  bankingPreference?: BankingPreference;
+  bankingStatus?: BankingStatus;
+  accountantEmail?: string;
+  archivedAt?: string;
+  // True once the owner confirmed the shareholder table totals 100%.
+  ownershipComplete?: boolean;
+  // Client idempotency key of the wizard submission that created this entity.
+  submissionId?: string;
+
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export type PropertyType = "Apartment" | "House" | "Villa" | "Commercial" | "Plot";
 // "F-G" = merged low-efficiency class; "N/A" = rating unknown. Legacy "A+"/"F"/"G"
 // remain valid so previously-saved properties still type-check and display.
@@ -1560,6 +1638,9 @@ export interface Property {
   storageUnit?: boolean;
   ownershipType?: OwnershipType;
   companyName?: string;
+  // Entity (COL.entities) this property is held through. Optional: legacy
+  // rows fall back to companyName/ownershipType until backfilled.
+  entityId?: string;
   titleDeedsStatus?: TitleDeedsStatus;
   developmentStatus?: DevelopmentStatus;
   acquisitionYear?: string;

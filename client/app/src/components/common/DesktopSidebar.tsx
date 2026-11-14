@@ -17,6 +17,7 @@ import {
   tenantMenuItems,
   adminMenuItems,
   BUSINESS_WORKSPACE_PATHS,
+  businessOnlyMenuItems,
 } from "@/lib/menuItems";
 import { useMessagesUnread } from "@/lib/useMessagesUnread";
 import { AddPropertyDrawer } from "@/components/owner/AddPropertyDrawer";
@@ -91,7 +92,9 @@ export function DesktopSidebar({ role = "owner" }: DesktopSidebarProps) {
   // sections are hidden there (they would show the real-estate portfolio).
   const visibleItems =
     role === "owner" && activeWorkspace?.type === "business"
-      ? sidebarItems.filter((it) => BUSINESS_WORKSPACE_PATHS.includes(it.path))
+      ? sidebarItems
+          .filter((it) => BUSINESS_WORKSPACE_PATHS.includes(it.path))
+          .flatMap((it) => (it.path === "/owner" ? [it, ...businessOnlyMenuItems] : [it]))
       : sidebarItems;
 
   // ── Switch Mode (Tenant ↔ Owner) ─────────────────────────────────────

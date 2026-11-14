@@ -31,14 +31,14 @@ import { TermsReconsentModal } from "@/components/common/TermsReconsentModal";
 //
 // We also bucket each loader by the persona that actually reaches it (owner /
 // tenant) so PreloadRoutes can warm ONLY the chunks the current user is likely
-// to hit — warming every chunk for everyone dragged heavy vendor code
+// to hit â€” warming every chunk for everyone dragged heavy vendor code
 // (recharts via the owner-only /insights page) onto tenants and low-end
 // clients, negating the code-split savings. Routes stay fully lazy + reachable
 // either way; bucketing only changes WHAT we prefetch in the background.
 type PreloadBucket = "owner" | "tenant";
 type PreloadLoader = () => Promise<unknown>;
 // A few page chunks pull in heavy vendor libs (e.g. recharts on /insights). We
-// never speculatively prefetch these — they load on real navigation only — so a
+// never speculatively prefetch these â€” they load on real navigation only â€” so a
 // user who never opens that page never pays for the megabytes.
 const heavyLoaders = new Set<PreloadLoader>();
 const ownerLoaders: PreloadLoader[] = [];
@@ -74,6 +74,13 @@ const OwnerSettingsPage = lazyRoute(() => import("@/pages/owner/OwnerSettingsPag
 });
 const OwnerOnboarding = lazyWithReload(() => import("@/pages/owner/OwnerOnboarding"));
 const WorkspacesPage = lazyWithReload(() => import("@/pages/owner/WorkspacesPage"));
+const AddBusinessWizard = lazyWithReload(() => import("@/pages/owner/AddBusinessWizard"));
+const BusinessPortfolioPage = lazyRoute(() => import("@/pages/owner/BusinessPortfolioPage"), {
+  buckets: ["owner"],
+});
+const BusinessDetailPage = lazyRoute(() => import("@/pages/owner/BusinessDetailPage"), {
+  buckets: ["owner"],
+});
 const PropertiesPage = lazyRoute(() => import("@/pages/owner/PropertiesPage"), {
   buckets: ["owner"],
 });
@@ -81,7 +88,7 @@ const PropertyDetailsPage = lazyRoute(() => import("@/pages/owner/PropertyDetail
   buckets: ["owner"],
 });
 const TenantsPage = lazyRoute(() => import("@/pages/owner/TenantsPage"), { buckets: ["owner"] });
-// /insights pulls in recharts — owner-only AND heavy, so it is never prefetched.
+// /insights pulls in recharts â€” owner-only AND heavy, so it is never prefetched.
 const PortfolioAnalyticsPage = lazyRoute(() => import("@/pages/owner/PortfolioAnalyticsPage"), {
   buckets: ["owner"],
   heavy: true,
@@ -101,7 +108,7 @@ const TenantSettingsPage = lazyRoute(() => import("@/pages/tenant/TenantSettings
   buckets: ["tenant"],
 });
 
-// Common pages — reached by both personas, so they stay in both buckets.
+// Common pages â€” reached by both personas, so they stay in both buckets.
 const ActivityPage = lazyRoute(() => import("@/pages/common/ActivityPage"));
 const MessagesPage = lazyRoute(() => import("@/pages/common/MessagesPage"));
 const ExpertPage = lazyRoute(() => import("@/pages/common/ExpertPage"));
@@ -128,12 +135,12 @@ const PublicPropertyPage = lazyWithReload(() => import("@/pages/PublicPropertyPa
 // Warm the route chunks the current user is likely to hit, in the background
 // after the app mounts, so first-time navigation is instant. Three guards keep
 // this from hurting the people it's meant to help:
-//   1. Run only once auth has resolved, and pick the bucket by persona — owners
+//   1. Run only once auth has resolved, and pick the bucket by persona â€” owners
 //      get owner+common chunks, tenants get tenant+common, and we never warm
 //      the other persona's pages (or, for signed-out visitors, anything).
 //   2. Never warm `heavy` chunks (recharts/maps): those load on real navigation
 //      only, so a user who never opens them never downloads them.
-//   3. Skip entirely on Data Saver or slow connections (2g/slow-2g) — on those
+//   3. Skip entirely on Data Saver or slow connections (2g/slow-2g) â€” on those
 //      clients speculative downloads compete with what the user actually wants.
 // Either way every route stays lazy + reachable; this only changes the
 // background prefetch.
@@ -152,7 +159,7 @@ function PreloadRoutes() {
       for (const load of loaders) {
         if (heavyLoaders.has(load)) continue; // never speculatively pull heavy vendor chunks
         load().catch(() => {
-          // Ignore preload failures — the real navigation will surface any error.
+          // Ignore preload failures â€” the real navigation will surface any error.
         });
       }
     });
@@ -207,7 +214,7 @@ function OneSignalBridge() {
 // While the user has app.oliowallet.com open and signed in, ping /api/heartbeat
 // so the platform admin can render a "currently in the app" green dot on the
 // users table. Fires immediately on sign-in and every 60s thereafter, but only
-// while the tab is visible — a hidden tab doesn't count as "live". The server
+// while the tab is visible â€” a hidden tab doesn't count as "live". The server
 // rate-limits to 1/30s per user, so a runaway loop can't accumulate writes.
 function HeartbeatBridge() {
   const { firebaseUser } = useAuth();
@@ -235,7 +242,7 @@ function HeartbeatBridge() {
 
 // Once the user is authenticated, prefetch the API data each page in their role
 // will need. Fired immediately (no idle delay) the moment auth resolves, so the
-// requests overlap with the post-login redirect — by the time the user lands on
+// requests overlap with the post-login redirect â€” by the time the user lands on
 // /tenant or /owner, data is usually already cached.
 function PrefetchUserData() {
   const { firebaseUser, profile, loading } = useAuth();
@@ -253,13 +260,13 @@ function PrefetchUserData() {
 function RouteFallback() {
   return (
     <div className="min-h-dvh flex items-center justify-center bg-neutral-950 text-neutral-400">
-      Loading…
+      Loadingâ€¦
     </div>
   );
 }
 
 // Each page now mounts its own AppLayout, so this fallback shows during the
-// lazy chunk fetch only — rare for the user's own persona (those chunks are
+// lazy chunk fetch only â€” rare for the user's own persona (those chunks are
 // pre-warmed by PreloadRoutes), expected for heavy pages like /insights which
 // we intentionally never speculatively prefetch.
 function PageFallback() {
@@ -271,13 +278,13 @@ function PageFallback() {
 }
 
 // Default landing on `/`. Reads role + plan from the auth profile and routes:
-//   owner role | non-basic plan → /owner
-//   else → /tenant
+//   owner role | non-basic plan â†’ /owner
+//   else â†’ /tenant
 //
 // Note: app.oliowallet.com is intentionally siloed from platform.oliowallet.com.
 // Even superadmins land on owner/tenant pages here; staff work happens on the
 // platform subdomain, which they must visit and sign in to separately. Never
-// auto-jump between subdomains — the user subdomain treats every account purely
+// auto-jump between subdomains â€” the user subdomain treats every account purely
 // by its owner/tenant identity.
 //
 // Unauthenticated users get sent to /auth.
@@ -300,7 +307,7 @@ function HomeRedirect() {
     setLocation(isOwner ? "/workspaces" : "/tenant");
   }, [loading, planLoading, firebaseUser, profile, plan, setLocation]);
 
-  // Signed in but /api/me failed — show a retry UI instead of spinning forever.
+  // Signed in but /api/me failed â€” show a retry UI instead of spinning forever.
   if (!loading && firebaseUser && !profile && profileError) {
     return <ProfileLoadError />;
   }
@@ -313,15 +320,15 @@ function HomeRedirect() {
         <a href="/legal/privacy" className="hover:text-white underline underline-offset-2">
           Privacy
         </a>
-        <span aria-hidden="true">·</span>
+        <span aria-hidden="true">Â·</span>
         <a href="/legal/terms" className="hover:text-white underline underline-offset-2">
           Terms
         </a>
-        <span aria-hidden="true">·</span>
+        <span aria-hidden="true">Â·</span>
         <a href="/legal/cookies" className="hover:text-white underline underline-offset-2">
           Cookies
         </a>
-        <span aria-hidden="true">·</span>
+        <span aria-hidden="true">Â·</span>
         <a href="/legal" className="hover:text-white underline underline-offset-2">
           All legal
         </a>
@@ -357,7 +364,7 @@ function CheckoutReturnHandler() {
 // Used by the retired /profile route to send the user to their own dashboard
 // instead of the now-deleted ProfilePage. Runs inside the auth shell where
 // profile + plan are guaranteed loaded, so first render produces the final
-// target — no loading flash.
+// target â€” no loading flash.
 function RoleDashboardRedirect() {
   const { profile } = useAuth();
   const { plan } = usePlan();
@@ -365,7 +372,7 @@ function RoleDashboardRedirect() {
   return <Redirect to={target} />;
 }
 
-// Marketplace is owner-only — tenants who land on /marketplace via a stale link
+// Marketplace is owner-only â€” tenants who land on /marketplace via a stale link
 // or direct URL get bounced back to their dashboard instead of seeing it.
 function OwnerOnlyMarketplace() {
   const { profile } = useAuth();
@@ -383,10 +390,10 @@ function OwnerOnlyMarketplaceDetail() {
 
 // Gate for the owner-experience routes (/owner/*, /properties, /tenants,
 // /banking, /portfolio-access). A tenant who deep-links into one of these
-// would otherwise render owner chrome over data they don't have — so we
+// would otherwise render owner chrome over data they don't have â€” so we
 // bounce non-owner-experience users to their own dashboard. Uses the SAME
 // isOwnerExperience check as the marketplace wrappers. Never redirects across
-// subdomains — /tenant is in-app. While profile is still loading we render the
+// subdomains â€” /tenant is in-app. While profile is still loading we render the
 // child (RequireAuth above already guarantees an authed user); once profile
 // resolves, a non-owner is redirected.
 function RequireOwnerExperience({ children }: { children: ReactNode }) {
@@ -395,7 +402,7 @@ function RequireOwnerExperience({ children }: { children: ReactNode }) {
   // Wait for BOTH profile and the plan claim before deciding. usePlan()
   // defaults plan to "basic" until the stripeRole claim resolves, and a
   // legacy paid owner (no explicit "owner" role, ownerModeEnabled unset)
-  // reads as owner-experience ONLY via their plan — so deciding while the
+  // reads as owner-experience ONLY via their plan â€” so deciding while the
   // claim is still loading would bounce them to /tenant and strand them
   // there. Gating on planLoading mirrors HomeRedirect / PrefetchUserData.
   if (profile && !planLoading && !isOwnerExperience(profile, plan))
@@ -405,7 +412,7 @@ function RequireOwnerExperience({ children }: { children: ReactNode }) {
 
 // Plan gate for the standalone Ask Olio page (/ask). The AI assistant is an
 // owner feature whose availability rides on the ACTIVE PORTFOLIO's plan
-// (askOlio.access — granted on advance/pro/business, not basic), mirroring the
+// (askOlio.access â€” granted on advance/pro/business, not basic), mirroring the
 // server gate on /api/ask (requireActivePortfolioPlanPrivilege("askOlio.access")).
 // Wrapped INSIDE RequireOwnerExperience, so tenants are already bounced to
 // /tenant; this only catches an owner whose active plan doesn't include the
@@ -434,15 +441,26 @@ function AuthenticatedShell() {
       <TermsReconsentModal />
       <Suspense fallback={<PageFallback />}>
         <Switch>
-          {/* Owner — every route here is owner-experience only. A tenant who
+          {/* Owner â€” every route here is owner-experience only. A tenant who
             deep-links in is redirected to /tenant by RequireOwnerExperience.
-            NOTE: /properties/:id is intentionally NOT gated — it serves the
+            NOTE: /properties/:id is intentionally NOT gated â€” it serves the
             public, read-only shared-property view to any signed-in viewer who
             follows a shared link (PropertyDetailsPage does its own per-viewer
             access handling), so gating it would break that flow. */}
           <Route path="/owner">
             <RequireOwnerExperience>
               <OwnerDashboard />
+            </RequireOwnerExperience>
+          </Route>
+          {/* Business workspace: portfolio + per-business overview. */}
+          <Route path="/business">
+            <RequireOwnerExperience>
+              <BusinessPortfolioPage />
+            </RequireOwnerExperience>
+          </Route>
+          <Route path="/business/:id">
+            <RequireOwnerExperience>
+              <BusinessDetailPage />
             </RequireOwnerExperience>
           </Route>
           <Route path="/owner/activity">
@@ -531,7 +549,7 @@ function AuthenticatedShell() {
           <Route path="/expert">
             <ExpertPage />
           </Route>
-          {/* Olio Insights — portfolio analytics (occupancy, cash flow, exports). */}
+          {/* Olio Insights â€” portfolio analytics (occupancy, cash flow, exports). */}
           <Route path="/insights">
             <PortfolioAnalyticsPage />
           </Route>
@@ -561,7 +579,7 @@ function AuthenticatedShell() {
             <PrivacyPage />
           </Route>
 
-          {/* Legacy menu pages — retired. Redirect bookmarks/old links to the
+          {/* Legacy menu pages â€” retired. Redirect bookmarks/old links to the
             user's dashboard so they don't dead-end on NotFound. /profile is
             role-neutral and picks dashboard by role; /tenant-profile was
             tenant-only, so route there. */}
@@ -604,7 +622,7 @@ function AuthenticatedShell() {
 
 // Wraps the entire user app. When config/system.maintenanceMode.enabled is
 // true, renders <MaintenanceScreen> for everyone except superadmins. The
-// flag updates in realtime via onSnapshot — flipping the toggle in the
+// flag updates in realtime via onSnapshot â€” flipping the toggle in the
 // admin app locks (or unlocks) every connected client within ~1s.
 //
 // The /auth/action path is allowed through so password-reset / email-verify
@@ -627,7 +645,7 @@ function MaintenanceGate({ children }: { children: ReactNode }) {
   );
 }
 
-// Extracts the property id from a /properties/:id path (and nothing else —
+// Extracts the property id from a /properties/:id path (and nothing else â€”
 // /properties or /properties/:id/anything don't match). Used to give
 // logged-out visitors the public property view instead of bouncing them
 // to /auth.
@@ -643,7 +661,7 @@ function Router() {
   // Public property links: once auth has resolved and the visitor is signed
   // OUT, /properties/:id renders the standalone read-only, public-safe view.
   // Logged-in users (and the still-loading state) fall through to the Switch
-  // below into the authenticated shell — AppLayout stays mounted across
+  // below into the authenticated shell â€” AppLayout stays mounted across
   // navigation. There, PropertyDetailsPage shows the full owner page to the
   // owner/granted readers and falls back to the SAME public view (in-shell)
   // for any other signed-in viewer who followed a shared link.
@@ -663,7 +681,7 @@ function Router() {
       <Switch>
         <Route path="/" component={HomeRedirect} />
 
-        {/* Pre-auth pages — no guard, no shared layout */}
+        {/* Pre-auth pages â€” no guard, no shared layout */}
         <Route path="/auth" component={Home} />
         <Route path="/auth/action" component={AuthActionPage} />
         <Route path="/auth/impersonate" component={AuthImpersonatePage} />
@@ -692,7 +710,7 @@ function Router() {
           </RequireAuth>
         </Route>
 
-        {/* Workspace picker — auth required, standalone layout (no sidebar),
+        {/* Workspace picker â€” auth required, standalone layout (no sidebar),
           owner experience only. Reached from the sidebar switcher. */}
         <Route path="/workspaces">
           <RequireAuth>
@@ -702,7 +720,17 @@ function Router() {
           </RequireAuth>
         </Route>
 
-        {/* Everything else: authenticated routes — AppLayout wraps the shell so the sidebar/header survive navigation */}
+        {/* Add Business wizard â€” full-page (no sidebar). Must precede the
+          shell's /business/:id route so "new" isn't read as an id. */}
+        <Route path="/business/new">
+          <RequireAuth>
+            <RequireOwnerExperience>
+              <AddBusinessWizard />
+            </RequireOwnerExperience>
+          </RequireAuth>
+        </Route>
+
+        {/* Everything else: authenticated routes â€” AppLayout wraps the shell so the sidebar/header survive navigation */}
         <Route>
           <RequireAuth>
             <AuthenticatedShell />

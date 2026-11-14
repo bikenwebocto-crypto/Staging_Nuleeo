@@ -6,6 +6,7 @@ import { AddPropertyDrawer } from "@/components/owner/AddPropertyDrawer";
 import { RecordActivityDialog } from "@/components/owner/RecordActivityDialog";
 import { BusinessDashboard } from "@/components/owner/dashboard/BusinessDashboard";
 import { useWorkspace } from "@/lib/workspaces";
+import { CreateEntityDialog } from "@/components/owner/entity/CreateEntityDialog";
 import { useActivePortfolioPlan } from "@/lib/useActivePortfolioPlan";
 import { useCanOwnerPlan } from "@ui/lib/usePrivileges";
 import { openBriefing } from "@ui/lib/briefing";
@@ -150,7 +151,9 @@ function PortfolioValueHero({
   onRecordActivity,
   onConnectBank,
   onBriefing,
+  onAddCompany,
 }: {
+  onAddCompany?: () => void;
   portfolioValue: number;
   portfolioGrowth?: number | null;
   propertyCount: number;
@@ -194,6 +197,16 @@ function PortfolioValueHero({
 
       <OwnershipSplit segments={ownershipSegments} loading={loading} />
 
+      {onAddCompany && (
+        <button
+          type="button"
+          onClick={onAddCompany}
+          className="-mt-2 flex w-fit items-center gap-1.5 rounded-full text-xs font-semibold text-[#A3A7AB] hover:text-[#F4F4F2] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A78C68]"
+        >
+          <Plus size={12} aria-hidden="true" /> Add company
+        </button>
+      )}
+
       <div className="mt-auto grid grid-cols-4 gap-2">
         <PortfolioAction icon={Plus} label="Add asset" primary onClick={onAddAsset} />
         <PortfolioAction icon={Receipt} label="Record activity" onClick={onRecordActivity} />
@@ -221,6 +234,7 @@ function RealEstateDashboard() {
 
   const [isAddPropertyOpen, setIsAddPropertyOpen] = useState(false);
   const [isRecordActivityOpen, setIsRecordActivityOpen] = useState(false);
+  const [isAddCompanyOpen, setIsAddCompanyOpen] = useState(false);
 
   /*
    * --------------------------------------------------------------------------
@@ -414,6 +428,7 @@ function RealEstateDashboard() {
     <>
       <AddPropertyDrawer open={isAddPropertyOpen} onOpenChange={setIsAddPropertyOpen} />
       <RecordActivityDialog open={isRecordActivityOpen} onOpenChange={setIsRecordActivityOpen} />
+      <CreateEntityDialog open={isAddCompanyOpen} onOpenChange={setIsAddCompanyOpen} />
 
       <main className="w-full min-h-full">
         {/* ------------------------------------------------------------------
@@ -512,6 +527,7 @@ function RealEstateDashboard() {
                 onRecordActivity={canEdit ? () => setIsRecordActivityOpen(true) : undefined}
                 onConnectBank={isSelf ? () => setLocation("/banking") : undefined}
                 onBriefing={() => void generateBriefing()}
+                onAddCompany={isSelf ? () => setIsAddCompanyOpen(true) : undefined}
               />
 
               <section aria-label="Dashboard summary" className="min-w-0">

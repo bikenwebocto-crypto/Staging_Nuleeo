@@ -8,7 +8,13 @@
       "PowerShell(Select-String -Path .env -Pattern '^VITE_FIREBASE_\\(PROJECT_ID|AUTH_DOMAIN\\)|EMULATOR' | ForEach-Object { $_.Line })",
       "Bash(grep -vE \"^//\")",
       "Bash(npx tsc *)",
-      "Bash(echo \"tsc=$?\")"
+      "Bash(echo \"tsc=$?\")",
+      "PowerShell(npx tsc --noEmit -p . 2>&1)",
+      "PowerShell(npx vitest run shared/entityBackfill.test.ts server/services 2>&1)",
+      "PowerShell(npx vitest run shared/entityBackfill.test.ts server/services/userExport server/services/userDelete 2>&1)",
+      "PowerShell(npx eslint client/app/src/components/owner/entity client/app/src/lib/entities.ts client/app/src/components/owner/dashboard/BusinessDashboard.tsx client/app/src/pages/owner/OwnerDashboard.tsx server/routes/entities.ts shared/entities.ts 2>&1)",
+      "PowerShell(Remove-Item client/app/src/pages/owner/BusinessOverviewPage.tsx; \\(Get-Content client/app/src/App.tsx -Raw\\).Replace\\('BusinessOverviewPage = lazyRoute\\(\\(\\) => import\\(\"@/pages/owner/BusinessOverviewPage\"\\)','BusinessDetailPage = lazyRoute\\(\\(\\) => import\\(\"@/pages/owner/BusinessDetailPage\"\\)'\\).Replace\\('<BusinessOverviewPage />','<BusinessDetailPage />'\\) | Set-Content -NoNewline -Encoding utf8 client/app/src/App.tsx; Select-String -Path client/app/src/App.tsx -Pattern \"BusinessDetailPage|BusinessOverview\")",
+      "PowerShell(node -e \"const f='client/app/src/App.tsx';const fs=require\\('fs'\\);let s=fs.readFileSync\\(f,'utf8'\\);if\\(s.charCodeAt\\(0\\)===0xFEFF\\){fs.writeFileSync\\(f,s.slice\\(1\\)\\);console.log\\('BOM removed'\\)}else console.log\\('no BOM'\\)\")"
     ]
   }
 }

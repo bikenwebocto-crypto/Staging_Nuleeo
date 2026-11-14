@@ -8,6 +8,7 @@
 
 import {
   Home,
+  Briefcase,
   Building,
   Store,
   FileText,
@@ -42,11 +43,15 @@ export const menuItems = [
 // are hidden there; general tools stay.
 export const BUSINESS_WORKSPACE_PATHS: string[] = [
   "/owner",
+  "/business",
   "/owner/messages",
   "/calculator",
   "/network",
   "/ask-olio",
 ];
+
+// Sidebar items that exist ONLY in a business workspace (inserted after Home).
+export const businessOnlyMenuItems = [{ icon: Briefcase, label: "Portfolio", path: "/business" }];
 
 export const tenantMenuItems = [
   { icon: Home, label: "Home", path: "/tenant" },
