@@ -25,9 +25,9 @@ const PATH_QUERIES: Record<string, ReadonlyArray<readonly string[]>> = {
   ],
   "/owner/agreements": [["/api/owner/agreements"]],
   "/owner/activity": [["/api/owner/transactions"]],
-  "/properties": [["/api/owner/properties"]],
+  "/portfolios": [["/api/owner/properties"], ["/api/projects"], ["/api/owner/summary"]],
   "/tenants": [["/api/owner/tenants"]],
-  // Olio Insights (portfolio analytics), formerly /analytics. Uses the windowed
+  // Nuleeo Insights (portfolio analytics), formerly /analytics. Uses the windowed
   // transactions query (date window, not the 25-row activity feed).
   "/insights": [["/api/owner/summary"], ["/api/owner/transactions?sinceDays=370"]],
 };
@@ -39,6 +39,7 @@ const TENANT_KEYS: ReadonlyArray<readonly string[]> = [
 ];
 const OWNER_KEYS: ReadonlyArray<readonly string[]> = [
   ["/api/owner/properties"],
+  ["/api/projects"],
   ["/api/owner/transactions"],
   ["/api/owner/agreements"],
   ["/api/owner/tenants"],

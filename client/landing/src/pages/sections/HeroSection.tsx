@@ -55,7 +55,7 @@ export default function HeroSection() {
           <Logo
             variant="wordmark"
             color="white"
-            alt="Olio"
+            alt="Nuleeo"
             className="h-24 md:h-32 lg:h-40 w-auto mx-auto"
           />
           <h1 className="text-white/80 text-xl md:text-2xl font-medium mt-6">

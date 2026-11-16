@@ -126,7 +126,7 @@ export default function AuthActionPage() {
     if (phase.kind !== "success") return;
     const t = setTimeout(() => {
       // continueUrl arrives as a query param after Firebase's verify/reset
-      // flow. Validate strictly: only http(s) on the allowed Olio hosts.
+      // flow. Validate strictly: only http(s) on the allowed Nuleeo hosts.
       // Without this, `javascript:alert(...)` would parse cleanly (origin
       // === "null") and `window.location.href` would execute the script
       // in the just-signed-in user's session — full account takeover via

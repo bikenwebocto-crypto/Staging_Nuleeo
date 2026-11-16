@@ -31,7 +31,7 @@ describe("wrapInEmailShell — base", () => {
       body: "Hello there",
       unsubscribeUrl: "https://app.oliowallet.com/api/u/tok",
     });
-    expect(html).toContain("Olio Wallet");
+    expect(html).toContain("Nuleeo Wallet");
     expect(html).toContain("https://app.oliowallet.com/api/u/tok");
     expect(html).toContain(">Unsubscribe<");
     expect(text).toContain("Unsubscribe: https://app.oliowallet.com/api/u/tok");
@@ -82,21 +82,21 @@ describe("wrapInEmailShell — signature + footer note", () => {
     const { html, text } = wrapInEmailShell({
       subject: "s",
       body: "The message body",
-      signature: "Best,\nThe Olio Team",
-      footerText: "Olio Wallet Ltd · Nicosia",
+      signature: "Best,\nThe Nuleeo Team",
+      footerText: "Nuleeo Wallet Ltd · Nicosia",
     });
-    expect(html).toContain("The Olio Team");
-    expect(html).toContain("Olio Wallet Ltd · Nicosia");
+    expect(html).toContain("The Nuleeo Team");
+    expect(html).toContain("Nuleeo Wallet Ltd · Nicosia");
     // Order: body → signature → footer note → copyright.
     const bodyIdx = html.indexOf("The message body");
-    const sigIdx = html.indexOf("The Olio Team");
-    const footerIdx = html.indexOf("Olio Wallet Ltd");
+    const sigIdx = html.indexOf("The Nuleeo Team");
+    const footerIdx = html.indexOf("Nuleeo Wallet Ltd");
     const copyrightIdx = html.indexOf("© ");
     expect(bodyIdx).toBeLessThan(sigIdx);
     expect(sigIdx).toBeLessThan(footerIdx);
     expect(footerIdx).toBeLessThan(copyrightIdx);
-    expect(text).toContain("Best,\nThe Olio Team");
-    expect(text).toContain("Olio Wallet Ltd · Nicosia");
+    expect(text).toContain("Best,\nThe Nuleeo Team");
+    expect(text).toContain("Nuleeo Wallet Ltd · Nicosia");
   });
 
   it("full order: body → CTA → signature → footer", () => {
@@ -120,7 +120,7 @@ describe("wrapInEmailShell — signature + footer note", () => {
       footerText: "",
     });
     // Still has the mandatory footer, but no stray empty signature div.
-    expect(html).toContain("Olio Wallet");
+    expect(html).toContain("Nuleeo Wallet");
   });
 });
 

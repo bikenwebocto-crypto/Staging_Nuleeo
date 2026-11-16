@@ -123,7 +123,7 @@ export function PricingModal({ open, onOpenChange }: PricingModalProps) {
     // Business is sales-led — no Stripe product, just open an email to sales.
     if (slot === "business") {
       window.location.assign(
-        `mailto:${SALES_EMAIL}?subject=${encodeURIComponent("Olio Business plan enquiry")}`,
+        `mailto:${SALES_EMAIL}?subject=${encodeURIComponent("Nuleeo Business plan enquiry")}`,
       );
       return;
     }

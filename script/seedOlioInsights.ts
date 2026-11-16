@@ -1,4 +1,4 @@
-// Demo-data seeder for the owner "Olio Insights" analytics page. Writes a small
+// Demo-data seeder for the owner "Nuleeo Insights" analytics page. Writes a small
 // but rich, realistic portfolio (4 properties, 3 active leases + 1 ended, ~12
 // months of rent payments with varied punctuality, a prepaid advance, pending +
 // overdue rent, and expenses across every category) for ONE owner so every

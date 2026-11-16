@@ -77,7 +77,7 @@ export function CampaignPreview({
                 </p>
               )}
               <p className="text-[10px] text-muted-foreground text-center">
-                © {new Date().getFullYear()} Olio Wallet · Unsubscribe
+                © {new Date().getFullYear()} Nuleeo Wallet · Unsubscribe
               </p>
             </div>
           </div>

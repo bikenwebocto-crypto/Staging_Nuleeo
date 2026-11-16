@@ -108,9 +108,9 @@ export function RoleSelectionModal() {
       <DialogContent className="sm:max-w-md rounded-2xl p-0 overflow-hidden">
         <div className="p-5 pb-0">
           <DialogHeader>
-            <DialogTitle className="text-foreground text-lg">Welcome to Olio</DialogTitle>
+            <DialogTitle className="text-foreground text-lg">Welcome to Nuleeo</DialogTitle>
             <DialogDescription>
-              Tell us how you&apos;ll use Olio and we&apos;ll take you to the right place.
+              Tell us how you&apos;ll use Nuleeo and we&apos;ll take you to the right place.
             </DialogDescription>
           </DialogHeader>
         </div>

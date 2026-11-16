@@ -312,7 +312,7 @@ export function openAgreementPdf(
    </div>
   </div>
  </div>
- <div class="foot">Olio Wallet · oliowallet.com · Generated from your lease record. Use your browser's print dialog to save as PDF.</div>
+ <div class="foot">Nuleeo Wallet · oliowallet.com · Generated from your lease record. Use your browser's print dialog to save as PDF.</div>
  <script>window.onload=function(){setTimeout(function(){window.print()},250)}</script>
 </body></html>`;
 

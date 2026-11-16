@@ -335,7 +335,7 @@ export async function runLeaseExpirySweep(): Promise<void> {
       // Notify AFTER commit so we never push on a write that didn't land.
       const arrearsNote =
         arrears.amount > 0
-          ? ` A balance of ${eur(arrears.amount)} remains due — you can still settle it in Olio.`
+          ? ` A balance of ${eur(arrears.amount)} remains due — you can still settle it in Nuleeo.`
           : "";
       if (tenantUid) {
         await notifyUser({

@@ -174,7 +174,7 @@ export default function PortfolioAnalyticsPage() {
 
   return (
     <div className={PAGE_CONTAINER_CLASSNAME}>
-      <PageHeader title="Olio Insights" subtitle="Financial performance & insights" />
+      <PageHeader title="Nuleeo Insights" subtitle="Financial performance & insights" />
 
       {analyticsError && (
         <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 p-4 flex items-start justify-between gap-4">
@@ -197,7 +197,7 @@ export default function PortfolioAnalyticsPage() {
         <UpgradeCard
           tier="advanced"
           onUpgrade={() => setIsPricingOpen(true)}
-          title="Unlock Olio Insights"
+          title="Unlock Nuleeo Insights"
           body="Upgrade to Pro for projections, property rankings, tenant payment scores, cash-flow analytics and exportable reports."
         />
       ) : (

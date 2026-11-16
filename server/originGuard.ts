@@ -14,7 +14,7 @@
 //   (a) Only STATE-CHANGING methods (POST/PUT/PATCH/DELETE) are checked. GET/
 //       HEAD/OPTIONS pass untouched.
 //   (b) If a browser-set Origin OR Referer header is present, its host must be
-//       on the Olio allowlist — otherwise 403. A clearly-foreign browser
+//       on the Nuleeo allowlist — otherwise 403. A clearly-foreign browser
 //       origin is the only thing this rejects.
 //   (c) If NEITHER Origin NOR Referer is present, ALLOW. Server-to-server
 //       callers, curl, mobile apps, and (critically) webhook deliveries send

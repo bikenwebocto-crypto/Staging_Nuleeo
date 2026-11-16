@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 // agnostic to roles and per-app menu data.
 //
 // `path` is the URL the item navigates to. The optional sentinel label
-// "Ask Olio" wires through onAskOlioClick instead of routing.
+// "Ask Nuleeo" wires through onAskOlioClick instead of routing.
 export interface BottomNavItem {
   icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
   label: string;
@@ -43,7 +43,7 @@ export function BottomNav({
               aria-label={item.label}
               aria-current={isActive ? "page" : undefined}
               onClick={() => {
-                if (item.label === "Ask Olio" && onAskOlioClick) {
+                if (item.label === "Ask Nuleeo" && onAskOlioClick) {
                   onAskOlioClick();
                 } else {
                   setLocation(item.path);

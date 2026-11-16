@@ -45,6 +45,7 @@ let currentUser: TestUser = { uid: "owner-uid", email: "owner@example.com" };
 // each call so a test can inject a "concurrent writer" by mutating the
 // underlying maps between the pre-check and the txn.
 const propertiesById = new Map<string, Record<string, unknown>>();
+const projectsById = new Map<string, Record<string, unknown>>();
 const usersByEmail = new Map<string, Record<string, unknown>>();
 const portfoliosById = new Map<string, Record<string, unknown>>();
 const unitsByPropertyId = new Map<string, Array<Record<string, unknown>>>();
@@ -72,6 +73,7 @@ let recipientCapInfo: { plan: string; cap: number | null; used: number } = {
 beforeEach(() => {
   currentUser = { uid: "owner-uid", email: "owner@example.com" };
   propertiesById.clear();
+  projectsById.clear();
   usersByEmail.clear();
   portfoliosById.clear();
   unitsByPropertyId.clear();
@@ -335,6 +337,16 @@ function makePortfoliosQuery(): QueryBuilder {
   return q;
 }
 
+function makeProjectDoc(id: string) {
+  return {
+    id,
+    async get() {
+      const data = projectsById.get(id);
+      return { exists: !!data, id, data: () => data };
+    },
+  };
+}
+
 function makePortfolioDoc(id: string) {
   return {
     id,
@@ -373,6 +385,7 @@ function makeCollection(name: string) {
     doc(id?: string) {
       const finalId = id ?? `auto_${Math.random().toString(36).slice(2, 10)}`;
       if (name === "properties") return makePropertyDoc(finalId);
+      if (name === "projects") return makeProjectDoc(finalId);
       if (name === "portfolios") return makePortfolioDoc(finalId);
       if (name === "users") return makeUserDoc(finalId);
       // Other collections: a no-op doc shape. The endpoints under test
@@ -555,6 +568,17 @@ function seedPortfolio(id: string, ownerId: string) {
     id,
     ownerId,
     createdAt: "2026-01-01T00:00:00.000Z",
+  });
+}
+
+function seedProject(id: string, data: Partial<Record<string, unknown>>) {
+  projectsById.set(id, {
+    id,
+    ownerId: "owner-uid",
+    portfolioId: "pf-owner",
+    name: id,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    ...data,
   });
 }
 
@@ -857,6 +881,49 @@ describe("bedrooms/bathrooms validation", () => {
     // status alongside owner-occupancy.
     expect(res.body.occupancyStatus).toBeUndefined();
     expect(propertiesById.get("prop1")).not.toHaveProperty("occupancyStatus");
+  });
+
+  it("PATCH assigns a project from the same portfolio", async () => {
+    seedPortfolio("pf-owner", "owner-uid");
+    seedProject("proj-1", { ownerId: "owner-uid", portfolioId: "pf-owner" });
+    seedProperty("prop1", { ownerId: "owner-uid", portfolioId: "pf-owner" });
+    const app = buildApp();
+
+    const res = await request(app).patch("/api/properties/prop1").send({ projectId: "proj-1" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.projectId).toBe("proj-1");
+    expect(propertiesById.get("prop1")?.projectId).toBe("proj-1");
+  });
+
+  it("PATCH clears a project assignment with null", async () => {
+    seedPortfolio("pf-owner", "owner-uid");
+    seedProject("proj-1", { ownerId: "owner-uid", portfolioId: "pf-owner" });
+    seedProperty("prop1", {
+      ownerId: "owner-uid",
+      portfolioId: "pf-owner",
+      projectId: "proj-1",
+    });
+    const app = buildApp();
+
+    const res = await request(app).patch("/api/properties/prop1").send({ projectId: null });
+
+    expect(res.status).toBe(200);
+    expect(res.body.projectId).toBeUndefined();
+    expect(propertiesById.get("prop1")).not.toHaveProperty("projectId");
+  });
+
+  it("PATCH rejects a project from another portfolio and leaves the property unchanged", async () => {
+    seedPortfolio("pf-owner", "owner-uid");
+    seedProject("proj-other", { ownerId: "other-uid", portfolioId: "pf-other" });
+    seedProperty("prop1", { ownerId: "owner-uid", portfolioId: "pf-owner" });
+    const app = buildApp();
+
+    const res = await request(app).patch("/api/properties/prop1").send({ projectId: "proj-other" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/project/i);
+    expect(propertiesById.get("prop1")?.projectId).toBeUndefined();
   });
 });
 

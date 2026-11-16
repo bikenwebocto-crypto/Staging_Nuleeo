@@ -1,7 +1,7 @@
 // Cookie-consent state (ePrivacy / Cookie Policy). Persisted client-side in
 // localStorage — the consent record itself is strictly-necessary.
 //
-// Olio sets only essential storage (auth/session), a functional theme
+// Nuleeo sets only essential storage (auth/session), a functional theme
 // preference, and opt-in push; there are NO advertising or third-party
 // analytics cookies today. So this is mainly the consent MECHANISM + the gate
 // any future non-essential tech must check via hasCookieConsent(category).

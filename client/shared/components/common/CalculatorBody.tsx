@@ -598,7 +598,7 @@ function SellCalculator() {
           <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 flex items-start gap-3 text-destructive text-sm">
             <AlertCircle size={18} className="shrink-0 mt-0.5" />
             <p>
-              <strong>Disclaimer:</strong> Olio does not offer financial advice. For professional
+              <strong>Disclaimer:</strong> Nuleeo does not offer financial advice. For professional
               financial advice, please contact our team.
             </p>
           </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { ArrowRight, Plus, RefreshCw } from "lucide-react";
 import { Logo } from "@ui/components/Logo";
@@ -97,6 +97,13 @@ function WorkspaceCard({
 
 export default function WorkspacesPage() {
   const [, setLocation] = useLocation();
+  // Standalone page (no AppLayout): apply the Nuleeo theme here too so the
+  // create-workspace dialog matches.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add("theme-nuleeo");
+    return () => root.classList.remove("theme-nuleeo");
+  }, []);
   const { profile } = useAuth();
   const {
     workspaces,

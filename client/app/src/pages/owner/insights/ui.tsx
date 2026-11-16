@@ -1,4 +1,4 @@
-// Shared presentational primitives for the Olio Insights sections. Kept here so
+// Shared presentational primitives for the Nuleeo Insights sections. Kept here so
 // each section file stays focused on its own layout, and so the dark-mode token
 // rules + chart styling live in exactly one place.
 import { useEffect, useRef, useState, type ReactNode } from "react";

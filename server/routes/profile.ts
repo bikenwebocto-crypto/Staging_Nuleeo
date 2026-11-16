@@ -139,8 +139,8 @@ export function registerProfileRoutes(app: Express): void {
       // Tell platform staff a new user just signed up. Best-effort (notifyStaff
       // swallows its own errors); fires once, on first-ever /api/me.
       await notifyStaff({
-        title: "New Olio signup",
-        message: created.email || "A new user joined Olio.",
+        title: "New Nuleeo signup",
+        message: created.email || "A new user joined Nuleeo.",
         url: "https://platform.oliowallet.com/admin/users",
       });
 
@@ -206,7 +206,7 @@ export function registerProfileRoutes(app: Express): void {
   // Rate-limited to be safe against runaway loops, but the limit is generous
   // (1 / 30s per user) so the normal cadence sails through.
   // GDPR right of access (Art. 15) + portability (Art. 20): a machine-readable
-  // JSON export of everything Olio holds about the caller — scoped to their own
+  // JSON export of everything Nuleeo holds about the caller — scoped to their own
   // uid (see userExport.ts). Expensive (reads ~15 collections), so capped at
   // 5/day. Returned as a file download.
   app.get("/api/me/export", requireAuth, async (req, res) => {

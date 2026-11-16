@@ -61,7 +61,7 @@ export function wrapInEmailShell(opts: {
   // across the compliance docs; override MARKETING_SENDER_ADDRESS with the full
   // registered street address when available.
   const senderAddress =
-    process.env.MARKETING_SENDER_ADDRESS?.trim() || "Olio Wallet Ltd · Nicosia, Cyprus";
+    process.env.MARKETING_SENDER_ADDRESS?.trim() || "Nuleeo Wallet Ltd · Nicosia, Cyprus";
 
   // Normalize optional inputs. A CTA only counts if it has a label AND a
   // renderable url; otherwise it's dropped entirely (no dead button).
@@ -75,7 +75,7 @@ export function wrapInEmailShell(opts: {
     `${opts.body}\n\n` +
     `${cta ? `${cta.label}: ${cta.url}\n\n` : ""}` +
     `${signature ? `${signature}\n\n` : ""}` +
-    `—\nYou received this from Olio. ` +
+    `—\nYou received this from Nuleeo. ` +
     `${opts.unsubscribeUrl ? `Unsubscribe: ${opts.unsubscribeUrl}` : "Manage email preferences in Settings."}\n` +
     `${footerText ? `${footerText}\n` : ""}` +
     `${senderAddress}\n`;
@@ -127,7 +127,7 @@ export function wrapInEmailShell(opts: {
           ${signatureHtml}
         </td></tr>
         <tr><td style="padding:16px 28px 28px 28px;border-top:1px solid #ececec;color:#6b7280;font-size:12px;line-height:1.5;">
-          ${footerTextHtml}© ${new Date().getFullYear()} Olio Wallet · ${footerLink}
+          ${footerTextHtml}© ${new Date().getFullYear()} Nuleeo Wallet · ${footerLink}
           <br/>${escapeHtml(senderAddress)}
         </td></tr>
       </table>

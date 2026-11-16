@@ -28,8 +28,8 @@ export default function LegalIndexPage() {
         <div className="bg-card p-6 md:p-8 rounded-2xl shadow-sm border border-border">
           <h2 className="text-xl font-bold text-foreground">Legal &amp; compliance</h2>
           <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-            Olio Wallet Ltd is incorporated in the Republic of Cyprus and operates under EU law.
-            Every policy below is part of the agreement between you and Olio. If you have a
+            Nuleeo Wallet Ltd is incorporated in the Republic of Cyprus and operates under EU law.
+            Every policy below is part of the agreement between you and Nuleeo. If you have a
             question, contact us at <strong>legal@oliowallet.com</strong>.
           </p>
         </div>

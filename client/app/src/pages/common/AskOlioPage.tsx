@@ -88,7 +88,7 @@ export default function AskOlioPage() {
               <div className="bg-foreground text-background p-3 rounded-2xl mb-4">
                 <Sparkles size={28} />
               </div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">Ask Olio</h2>
+              <h2 className="text-2xl font-bold text-foreground mb-2">Ask Nuleeo</h2>
               <p className="text-sm text-muted-foreground max-w-[240px] mb-8">
                 Ask me anything about your properties, tenants, or market trends.
               </p>
@@ -173,8 +173,8 @@ export default function AskOlioPage() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              aria-label="Ask Olio"
-              placeholder="Ask Olio..."
+              aria-label="Ask Nuleeo"
+              placeholder="Ask Nuleeo..."
               className="flex-1 bg-secondary border-none rounded-2xl px-5 py-3.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/10 transition font-medium"
               autoFocus
             />

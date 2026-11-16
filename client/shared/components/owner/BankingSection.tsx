@@ -437,7 +437,7 @@ function SelfBankingSection({ returnPath }: { returnPath?: string }) {
                       <p className="text-muted-foreground">
                         {hasFee ? (
                           <>
-                            Olio takes <span className="font-medium text-foreground">{pct}%</span>
+                            Nuleeo takes <span className="font-medium text-foreground">{pct}%</span>
                             {minCents > 0 ? (
                               <>
                                 {" "}

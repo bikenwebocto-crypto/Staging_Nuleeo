@@ -34,7 +34,7 @@ const USER_SCOPED_LOCALSTORAGE_KEYS = [
 interface AuthState {
   // Firebase Auth user (identity); null when signed out.
   firebaseUser: FirebaseUser | null;
-  // Olio user profile from Firestore (roles, plan, etc.); null when signed out
+  // Nuleeo user profile from Firestore (roles, plan, etc.); null when signed out
   // or while still loading after sign-in.
   profile: Profile | null;
   // True until the first onAuthStateChanged fires (and any profile fetch resolves).

@@ -958,7 +958,7 @@ export function ProfileDrawer({
                 setShowContactModal(false);
                 setContactModalForm({ name: "", email: "" });
               } catch (err) {
-                // Server returns 404 with a useful message when the email has no Olio
+                // Server returns 404 with a useful message when the email has no Nuleeo
                 // account yet ("Ask them to sign up at app.oliowallet.com first").
                 setAccessSaveError(parseApiError(err, "Could not save contact"));
               } finally {

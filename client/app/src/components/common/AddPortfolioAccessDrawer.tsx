@@ -187,7 +187,7 @@ export function AddPortfolioAccessDrawer() {
               <Shield className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" size={20} />
               <div className="text-sm text-blue-700 dark:text-blue-300 leading-relaxed">
                 You are granting <strong>{activeMeta.permissions}</strong> access to your portfolio.
-                The contact must already have an Olio account — if they don't, ask them to sign up
+                The contact must already have an Nuleeo account — if they don't, ask them to sign up
                 first.
               </div>
             </div>

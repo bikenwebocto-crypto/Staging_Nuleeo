@@ -19,7 +19,7 @@ import { useHideBottomNav, useHideMobileHeader } from "@/components/common/AppLa
 import { AskOlioContent } from "@ui/components/common/AskOlioDrawer";
 import type { ConversationMessage } from "@shared/firestore-schema";
 
-// Synthetic id for the pinned "Ask Olio" entry. It isn't a real conversation
+// Synthetic id for the pinned "Ask Nuleeo" entry. It isn't a real conversation
 // (no Firestore doc, no counterpart) — selecting it swaps the right pane for
 // the AI chat instead of a message thread.
 const ASK_OLIO_ID = "ask-olio";
@@ -57,7 +57,7 @@ function formatTime(iso: string): string {
 // (no avatar URL on ConversationRow): first letter of the first + last token,
 // or the first letter for a single token. Returns "" for an empty name so the
 // caller renders an empty disc rather than garbage — this never applies to the
-// Ask Olio row, which keeps its Sparkles chip.
+// Ask Nuleeo row, which keeps its Sparkles chip.
 function initialsFor(name: string): string {
   const parts = (name || "").trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "";
@@ -140,7 +140,7 @@ export default function MessagesPage() {
   const activeConv = conversations.find((c) => c.id === activeId) ?? null;
   // Master/detail on mobile: the grid stacks to one column, so showing both
   // panes would push the open chat below the whole list (a tap on the pinned
-  // Ask Olio row would appear to do nothing). When something is selected we
+  // Ask Nuleeo row would appear to do nothing). When something is selected we
   // show only the detail pane on phones; desktop keeps both columns.
   const showDetail = isAskOlio || !!activeConv;
 
@@ -227,7 +227,7 @@ export default function MessagesPage() {
 
   const { data: messages = [], isLoading: msgsLoading } = useQuery<ConversationMessage[]>({
     queryKey: [`/api/messages/conversations/${activeId}/messages`],
-    // Skip for the synthetic Ask Olio entry — it has no message thread on the
+    // Skip for the synthetic Ask Nuleeo entry — it has no message thread on the
     // server; its right pane is the AI chat, which fetches via /api/ask.
     enabled: !!activeId && !isAskOlio,
     refetchInterval: activeId && !isAskOlio ? 5000 : false,
@@ -384,7 +384,7 @@ export default function MessagesPage() {
             data-chat-scroll
             className="flex flex-col flex-1 min-h-0 overflow-y-auto overscroll-contain"
           >
-            {/* Pinned Ask Olio — owner-only AI assistant, always at the top. */}
+            {/* Pinned Ask Nuleeo — owner-only AI assistant, always at the top. */}
             {!isTenantView && (
               <button
                 type="button"
@@ -398,7 +398,7 @@ export default function MessagesPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-medium text-sm text-foreground truncate">Ask Olio</span>
+                    <span className="font-medium text-sm text-foreground truncate">Ask Nuleeo</span>
                     <Pin size={11} className="text-muted-foreground shrink-0 fill-current" />
                   </div>
                   <p className="text-xs text-muted-foreground truncate">
@@ -510,7 +510,9 @@ export default function MessagesPage() {
                   <Sparkles size={14} />
                 </div>
                 <div className="min-w-0">
-                  <h2 className="text-sm font-semibold text-foreground leading-tight">Ask Olio</h2>
+                  <h2 className="text-sm font-semibold text-foreground leading-tight">
+                    Ask Nuleeo
+                  </h2>
                   <p className="text-[11px] text-muted-foreground leading-tight">
                     AI property assistant
                   </p>

@@ -1,7 +1,7 @@
 import { db } from "../firebase";
 import { COL, SUBCOL_EMAIL_RECIPIENTS } from "../../shared/firestore-schema";
 
-// Builds a machine-readable export of everything Olio holds about one user —
+// Builds a machine-readable export of everything Nuleeo holds about one user —
 // GDPR right of access (Art. 15) + portability (Art. 20). READ-ONLY.
 //
 // The query set mirrors deleteUserCascade (server/services/userDelete.ts) so

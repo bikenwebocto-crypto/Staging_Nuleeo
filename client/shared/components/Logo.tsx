@@ -24,12 +24,17 @@ const sources: Record<LogoVariant, Record<"dark" | "white", string>> = {
 
 // Single-img theme swap. Two imgs with `dark:hidden` would briefly co-exist
 // in the flex line during theme transitions, shifting layout — render one.
+// The Nuleeo theme (html.theme-nuleeo) is always dark.
+const rootIsDark = () => {
+  const c = document.documentElement.classList;
+  return c.contains("dark") || c.contains("theme-nuleeo");
+};
+
 function useIsDark() {
-  const [isDark, setIsDark] = useState(
-    () => typeof document !== "undefined" && document.documentElement.classList.contains("dark"),
-  );
+  const [isDark, setIsDark] = useState(() => typeof document !== "undefined" && rootIsDark());
   useEffect(() => {
-    const update = () => setIsDark(document.documentElement.classList.contains("dark"));
+    const update = () => setIsDark(rootIsDark());
+    update();
     window.addEventListener("theme-changed", update);
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     mq.addEventListener("change", update);
@@ -41,7 +46,12 @@ function useIsDark() {
   return isDark;
 }
 
-export function Logo({ variant = "wordmark", color = "auto", className, alt = "Olio" }: LogoProps) {
+export function Logo({
+  variant = "wordmark",
+  color = "auto",
+  className,
+  alt = "Nuleeo",
+}: LogoProps) {
   const isDark = useIsDark();
   const resolved = color === "auto" ? (isDark ? "white" : "dark") : color;
   return (

@@ -61,7 +61,7 @@ export function registerConnectRoutes(app: Express): void {
       }
       if (!isSafeRedirectUrl(returnUrl) || !isSafeRedirectUrl(refreshUrl)) {
         return res.status(400).json({
-          error: "returnUrl and refreshUrl must point at an Olio domain",
+          error: "returnUrl and refreshUrl must point at an Nuleeo domain",
         });
       }
       if (!isStripeConfigured()) {
@@ -299,7 +299,7 @@ export function registerConnectRoutes(app: Express): void {
     }
     if (!isSafeRedirectUrl(returnUrl) || !isSafeRedirectUrl(refreshUrl)) {
       return res.status(400).json({
-        error: "returnUrl and refreshUrl must point at an Olio domain",
+        error: "returnUrl and refreshUrl must point at an Nuleeo domain",
       });
     }
     if (!isStripeConfigured()) {

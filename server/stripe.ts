@@ -25,7 +25,7 @@ const STRIPE_API_VERSION = "2026-04-22.dahlia" as unknown as NonNullable<
 >["apiVersion"];
 
 const APP_INFO = {
-  name: "Olio Wallet",
+  name: "Nuleeo Wallet",
   version: "1.0.0",
   url: "https://oliowallet.com",
 } as const;

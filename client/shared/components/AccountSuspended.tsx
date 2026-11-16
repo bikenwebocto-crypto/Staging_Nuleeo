@@ -13,7 +13,7 @@ export function AccountSuspended() {
         <Ban className="mx-auto h-8 w-8 text-red-400" aria-hidden="true" />
         <h1 className="mt-4 text-lg font-semibold text-white">Your account has been suspended</h1>
         <p className="mt-2 text-sm text-neutral-400">
-          Access to Olio is currently blocked for this account. If you think this is a mistake,
+          Access to Nuleeo is currently blocked for this account. If you think this is a mistake,
           please contact support.
         </p>
         <div className="mt-6">

@@ -74,7 +74,7 @@ export function DeleteAccountSection({ signOutRedirect = "/auth" }: Props) {
           <h3 className="text-base font-semibold text-foreground">Download your data</h3>
         </div>
         <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-          Get a machine-readable (JSON) copy of the data Olio holds about you — your profile,
+          Get a machine-readable (JSON) copy of the data Nuleeo holds about you — your profile,
           tenancies, agreements, payment history, documents and messages (your GDPR rights of access
           and portability).
         </p>

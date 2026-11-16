@@ -190,7 +190,7 @@ export function DesktopHeader({
         <CommandPalette open={isPaletteOpen} onOpenChange={setIsPaletteOpen} items={searchItems!} />
       )}
 
-      <div className="hidden md:flex items-center h-16 min-h-16 flex-shrink-0 px-6 bg-white/60 dark:bg-white/[0.06] backdrop-blur-xl border-b border-border/30 dark:border-white/[0.08] sticky top-0 z-40 gap-4">
+      <div className="nuleeo-header hidden md:flex items-center h-16 min-h-16 flex-shrink-0 px-6 bg-white/60 dark:bg-white/[0.06] backdrop-blur-xl border-b border-border/30 dark:border-white/[0.08] sticky top-0 z-40 gap-4">
         {/* Page Title */}
         <h1 className="text-lg font-semibold text-foreground">{pageTitle}</h1>
 

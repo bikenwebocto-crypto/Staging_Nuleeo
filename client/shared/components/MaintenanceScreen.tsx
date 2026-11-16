@@ -23,7 +23,7 @@ export function MaintenanceScreen({ message, onSignOut }: MaintenanceScreenProps
         <h1 className="mt-6 text-xl font-semibold text-white">We'll be right back</h1>
         <p className="mt-3 text-sm text-neutral-400 leading-relaxed">
           {message?.trim() ||
-            "Olio is undergoing scheduled maintenance. Hang tight — we'll be back online shortly."}
+            "Nuleeo is undergoing scheduled maintenance. Hang tight — we'll be back online shortly."}
         </p>
         {onSignOut && (
           <button

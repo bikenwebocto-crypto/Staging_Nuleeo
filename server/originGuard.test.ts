@@ -42,13 +42,13 @@ describe("originGuard", () => {
     delete process.env.PUBLIC_APP_URL;
   });
 
-  it("allows an allowlisted Olio origin on a state-changing request", () => {
+  it("allows an allowlisted Nuleeo origin on a state-changing request", () => {
     const r = run({ method: "POST", origin: "https://app.oliowallet.com" });
     expect(r.nextCalled).toBe(true);
     expect(r.statusCode).toBeUndefined();
   });
 
-  it("allows every prod Olio host", () => {
+  it("allows every prod Nuleeo host", () => {
     for (const host of [
       "https://app.oliowallet.com",
       "https://platform.oliowallet.com",

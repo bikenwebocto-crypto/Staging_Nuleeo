@@ -28,7 +28,7 @@ export function stripeErrMsg(err: unknown, fallback: string, ctx?: string): stri
 // commonly the "review the responsibilities of managing losses for
 // connected accounts" platform-profile step that blocks `accounts.create`.
 //
-// This is invisible to end users and only the Olio team can clear it in the
+// This is invisible to end users and only the Nuleeo team can clear it in the
 // Stripe Dashboard, so callers translate it into a friendly "card payments
 // aren't available yet" message instead of leaking Stripe's raw text (which
 // links to our own internal dashboard settings). Matched on the message

@@ -153,7 +153,7 @@ export function registerAdminUsersRoutes(
         });
 
         // Best-effort transactional email — the new user gets a
-        // branded "Welcome to Olio Wallet" message with the password-
+        // branded "Welcome to Nuleeo Wallet" message with the password-
         // setup link instead of relying on the admin to copy/paste.
         // Resend failures are non-fatal: the admin still gets the
         // inviteLink in the response and can share it manually, and

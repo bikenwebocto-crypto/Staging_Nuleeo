@@ -27,7 +27,7 @@ export function TransferPropertyDrawer({
 
   // Destructive + irreversible: gate behind a typed confirmation that
   // matches the property address. Mirrors the DeletePropertyDialog
-  // pattern. A misclicked or typo'd email — matching a real Olio user —
+  // pattern. A misclicked or typo'd email — matching a real Nuleeo user —
   // would silently move the property to a stranger without this gate.
   const confirmTarget = propertyAddress.trim();
   const isConfirmed =
@@ -70,7 +70,7 @@ export function TransferPropertyDrawer({
       setEmail("");
       setConfirmText("");
     }, 300);
-    if (wasSuccess) navigate("/properties");
+    if (wasSuccess) navigate("/portfolios");
   };
 
   return (
@@ -101,7 +101,7 @@ export function TransferPropertyDrawer({
                 <div className="bg-blue-500/10 p-4 rounded-xl border border-blue-500/20 text-sm text-blue-700 dark:text-blue-400 space-y-2">
                   <p>
                     Transferring <strong>{propertyAddress}</strong> immediately reassigns ownership
-                    to the email below. The recipient must already have an Olio account.
+                    to the email below. The recipient must already have an Nuleeo account.
                   </p>
                   <p className="text-xs opacity-90">
                     Your documents, transactions, and tenant history stay with your account — the

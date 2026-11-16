@@ -10,7 +10,7 @@
 import { auth } from "../firebase";
 import { sendEmailViaResend } from "./resend";
 
-const APP_NAME = "Olio Wallet";
+const APP_NAME = "Nuleeo Wallet";
 
 // Send a password-reset email. Silently no-ops if the email isn't tied to
 // any account so callers can always return 200 — that prevents an attacker

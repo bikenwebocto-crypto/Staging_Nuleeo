@@ -50,7 +50,7 @@ function authErrorMessage(err: unknown): string {
       return "For security, sign out and sign back in, then try again.";
     case "auth/credential-already-in-use":
     case "auth/email-already-in-use":
-      return "That email is already linked to another Olio account.";
+      return "That email is already linked to another Nuleeo account.";
     case "auth/invalid-email":
       return "That doesn't look like a valid email address.";
     case "auth/popup-closed-by-user":
@@ -168,7 +168,7 @@ export function SignInMethodsDialog({
           : "Change email";
   const subtitle =
     view === "list"
-      ? "Manage how you sign into your Olio account."
+      ? "Manage how you sign into your Nuleeo account."
       : view === "add-password"
         ? `Create a password for ${email}. You'll then be able to sign in with either Google or email + password.`
         : view === "change-password"

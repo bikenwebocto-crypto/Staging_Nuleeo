@@ -30,6 +30,7 @@ import {
   type OccupancyStatus,
   type OwnershipType,
   type PortfolioPrivilegeKey,
+  type Project,
   type Property,
   type PropertyType,
   type PropertyUse,
@@ -39,10 +40,53 @@ import {
   type Unit,
   type User,
 } from "../../shared/firestore-schema";
+import {
+  MAX_BUILDING_UNITS,
+  unitLabels,
+  PROFILE_DOC_TYPES,
+  computeProfileCompletion,
+  computeProfileSteps,
+  type ProfileDocType,
+  type ProfileOwner,
+  type ProfileUtility,
+  type PropertyProfile,
+} from "../../shared/propertyProfile";
+
+// A property "has a tenancy" for the Use step when an active or in-flight
+// (pending/invited) tenancy exists.
+async function propertyHasAnyTenancy(propertyId: string): Promise<boolean> {
+  const snap = await db()
+    .collection(COL.tenants)
+    .where("propertyId", "==", propertyId)
+    .where("status", "in", ["active", "pending", "invited"])
+    .limit(1)
+    .get();
+  return !snap.empty;
+}
+
+function withProfileCompletion<T extends Property>(p: T, hasTenancy: boolean) {
+  const profileSteps = computeProfileSteps(p, hasTenancy);
+  return { ...p, profileSteps, profileCompletion: computeProfileCompletion(profileSteps) };
+}
+
+const isoDate = (v: unknown) =>
+  typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined;
+const monthYear = (v: unknown) =>
+  typeof v === "string" && /^\d{4}-\d{2}$/.test(v) ? v : undefined;
+const money = (v: unknown) =>
+  typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : undefined;
 
 // Runtime allowlists for the union types on Property. Shared between
 // create + patch to keep them in lockstep.
-const PROPERTY_TYPES: PropertyType[] = ["Apartment", "House", "Villa", "Commercial", "Plot"];
+const PROPERTY_TYPES: PropertyType[] = [
+  "Apartment",
+  "House",
+  "Villa",
+  "Commercial",
+  "Plot",
+  "Building",
+  "Other",
+];
 const ENERGY_CLASSES: EnergyClass[] = ["A+", "A", "B", "C", "D", "E", "F", "G", "F-G", "N/A"];
 const OWNERSHIP_TYPES: OwnershipType[] = ["individual", "company"];
 const TITLE_STATUSES: TitleDeedsStatus[] = ["issued", "pending"];
@@ -55,7 +99,7 @@ const PROPERTY_USES: PropertyUse[] = ["hold", "rent", "owner_occupied"];
 const OCCUPANCY_STATUSES: OccupancyStatus[] = ["rented", "vacant", "owner_occupied"];
 
 // Property free-text fields (address, name, addressNumber, …) are display
-// strings that land in admin lists, the briefing PDF, and the Ask-Olio prompt,
+// strings that land in admin lists, the briefing PDF, and the Ask-Nuleeo prompt,
 // so run them through the Unicode sanitizer (NFKC + strip bidi/zero-width
 // controls) — the same hygiene firstName/lastName already get. sanitizeText
 // applies the length cap after stripping.
@@ -65,6 +109,8 @@ const strReq = (v: unknown, max = 200) =>
   typeof v === "string" ? sanitizeText(v.trim(), max) : "";
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
 const bool = (v: unknown) => (typeof v === "boolean" ? v : undefined);
+// Types a building's units can take (a unit can't itself be a Building).
+const UNIT_TYPES: PropertyType[] = ["Apartment", "House", "Commercial", "Other"];
 
 // Bedrooms/bathrooms are counts: a non-negative integer with a sane ceiling.
 // The plain `num()` allowlist would happily store -1, 2.5, or 9999 — all of
@@ -158,13 +204,19 @@ export function registerPropertyRoutes(app: Express): void {
         });
       }
 
-      const address = strReq(body.address, 300);
+      // The Add-asset page collects city + country rather than a street
+      // address; fall back to "City, Country" so `address` stays populated
+      // for every existing reader.
+      const address =
+        strReq(body.address, 300) ||
+        [str(body.city, 120), str(body.country, 120)].filter(Boolean).join(", ");
+      // Market value is optional on Add asset (0 = not given yet).
       const propertyValue = num(body.propertyValue) ?? 0;
       const acquisitionPrice = num(body.acquisitionPrice) ?? 0;
 
-      if (!address) return res.status(400).json({ error: "address is required" });
-      if (propertyValue <= 0)
-        return res.status(400).json({ error: "propertyValue must be positive" });
+      if (!address) return res.status(400).json({ error: "address or city is required" });
+      if (propertyValue < 0 || acquisitionPrice < 0)
+        return res.status(400).json({ error: "Amounts can't be negative" });
       // Reject obviously-bad room counts up front (negative, fractional, or
       // absurdly large) rather than silently dropping them via num(). A real 0
       // (studio / no separate bath) is valid and falls through to countNum.
@@ -222,6 +274,14 @@ export function registerPropertyRoutes(app: Express): void {
       // can't nest inside another one.
       const portfolio = await ensurePortfolio(uid);
 
+      // Optional project grouping — must be one of this portfolio's projects.
+      const projectId = str(body.projectId, 128);
+      if (projectId) {
+        const proj = await db().collection(COL.projects).doc(projectId).get();
+        if (!proj.exists || (proj.data() as Project).portfolioId !== portfolio.id)
+          return res.status(400).json({ error: "Unknown project" });
+      }
+
       const ref = db().collection(COL.properties).doc();
       const now = new Date().toISOString();
       const property: Property = {
@@ -229,6 +289,7 @@ export function registerPropertyRoutes(app: Express): void {
         ownerId: uid,
         portfolioId: portfolio.id,
         address,
+        ...(projectId ? { projectId } : {}),
         propertyValue,
         acquisitionPrice,
         createdAt: now,
@@ -238,6 +299,9 @@ export function registerPropertyRoutes(app: Express): void {
         // image="http://169.254.169.254/..." or localhost to read
         // cloud-metadata / internal services via the response.
         ...(str(body.name, 200) ? { name: str(body.name, 200)! } : {}),
+        ...(propertyType === "Other" && str(body.propertyTypeOther, 80)
+          ? { propertyTypeOther: str(body.propertyTypeOther, 80)! }
+          : {}),
         ...(() => {
           const raw = strReq(body.image, 1000);
           return raw && isPublicHttpsUrl(raw) ? { image: raw } : {};
@@ -328,6 +392,96 @@ export function registerPropertyRoutes(app: Express): void {
     }
   });
 
+  // Add building → Units step. Creates `count` child properties under a
+  // Building, labelled from `firstLabel` (A1 → A1…A10). Each unit is a full
+  // Property doc (parentPropertyId = building) so it gets its own use, tenant
+  // and agreements later. Units count against the plan's unit cap, checked
+  // atomically for the whole batch.
+  app.post("/api/properties/:id/units", requireAuth, async (req, res) => {
+    const { uid } = req.user!;
+    const parentId = reqStr(req.params.id);
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    try {
+      const parentSnap = await db().collection(COL.properties).doc(parentId).get();
+      const parent = parentSnap.exists ? (parentSnap.data() as Property) : null;
+      if (!parent || parent.ownerId !== uid)
+        return res.status(404).json({ error: "Property not found" });
+      if (parent.propertyType !== "Building")
+        return res.status(400).json({ error: "Units can only be added to a building" });
+
+      const count = num(body.count);
+      if (
+        count === undefined ||
+        !Number.isInteger(count) ||
+        count < 1 ||
+        count > MAX_BUILDING_UNITS
+      )
+        return res
+          .status(400)
+          .json({ error: `count must be a whole number between 1 and ${MAX_BUILDING_UNITS}` });
+      const firstLabel = str(body.firstLabel, 20) || "1";
+      const unitType = UNIT_TYPES.includes(body.unitType as PropertyType)
+        ? (body.unitType as PropertyType)
+        : "Apartment";
+      const toRent = body.toRent !== false;
+      const labels = unitLabels(firstLabel, count);
+
+      const capInfo = await resolveUnitCap(uid);
+      const portfolioId = parent.portfolioId ?? (await ensurePortfolio(uid)).id;
+      const now = new Date().toISOString();
+      const parentName = parent.name || parent.address;
+      const units: Property[] = labels.map((label) => {
+        const ref = db().collection(COL.properties).doc();
+        return {
+          id: ref.id,
+          ownerId: uid,
+          portfolioId,
+          address: parent.address,
+          name: `${parentName} · ${label}`,
+          propertyType: unitType,
+          parentPropertyId: parentId,
+          unitLabel: label,
+          buildingName: parentName,
+          propertyValue: 0,
+          acquisitionPrice: 0,
+          propertyUse: toRent ? "rent" : "hold",
+          createdAt: now,
+          ...(parent.city ? { city: parent.city } : {}),
+          ...(parent.country ? { country: parent.country } : {}),
+          ...(parent.projectId ? { projectId: parent.projectId } : {}),
+          ...(parent.ownershipType ? { ownershipType: parent.ownershipType } : {}),
+          ...(parent.companyName ? { companyName: parent.companyName } : {}),
+          ...(parent.entityId ? { entityId: parent.entityId } : {}),
+        };
+      });
+
+      const result = await db().runTransaction(async (t) => {
+        if (capInfo.cap !== null) {
+          const q = await t.get(
+            db().collection(COL.properties).where("portfolioId", "==", portfolioId),
+          );
+          const active = q.docs.filter((d) => (d.data() as Property).status !== "inactive").length;
+          if (active + units.length > capInfo.cap) return { exceeded: true, used: active };
+        }
+        for (const u of units) t.set(db().collection(COL.properties).doc(u.id), u);
+        return { exceeded: false, used: 0 };
+      });
+      if (result.exceeded) {
+        return res.status(402).json({
+          error: "Upgrade required",
+          privilege: "units.unlimited",
+          plan: capInfo.plan,
+          cap: capInfo.cap,
+          used: result.used,
+          message: `Your current plan allows up to ${capInfo.cap} units. Adding ${units.length} would take you to ${result.used + units.length}. Upgrade to add more.`,
+        });
+      }
+      res.status(201).json({ units: units.map((u) => ({ id: u.id, unitLabel: u.unitLabel })) });
+    } catch (err: unknown) {
+      res.status(500).json({ error: errMsg(err, "Failed to create units") });
+    }
+  });
+
   app.get("/api/properties/:id", requireAuth, async (req, res) => {
     const { uid } = req.user!;
     const id = reqStr(req.params.id);
@@ -369,8 +523,11 @@ export function registerPropertyRoutes(app: Express): void {
       const tenancyRent = activeTenants.reduce((s, t) => s + (t.rentAmount ?? 0), 0);
       const rentAmount = occupied ? tenancyRent || unitRent : 0;
 
+      // Profile % is computed on read too, so legacy rows (never PATCHed via
+      // the wizard) show a real figure instead of 0.
+      const hasTenancy = occupied || (await propertyHasAnyTenancy(id));
       res.json({
-        ...property,
+        ...withProfileCompletion(property, hasTenancy),
         units,
         unitCount: units.length,
         rentAmount,
@@ -593,6 +750,25 @@ export function registerPropertyRoutes(app: Express): void {
       setIfDefined("developmentYear", str(body.developmentYear, 10));
       setIfDefined("rentPrice", num(body.rentPrice));
 
+      // Project membership is optional and can be cleared explicitly with
+      // null / "". Validate the target project belongs to the same portfolio
+      // as the property so a direct PATCH can't attach a property to another
+      // owner's project.
+      if (body.projectId !== undefined) {
+        if (body.projectId === null || body.projectId === "") {
+          updates.projectId = FieldValue.delete();
+        } else {
+          const projectId = str(body.projectId, 128);
+          if (!projectId) return res.status(400).json({ error: "projectId must be a string" });
+          const portfolioId = existing.portfolioId ?? (await ensurePortfolio(uid)).id;
+          const projectSnap = await db().collection(COL.projects).doc(projectId).get();
+          const project = projectSnap.exists ? (projectSnap.data() as Project) : null;
+          if (!project || project.ownerId !== uid || project.portfolioId !== portfolioId)
+            return res.status(400).json({ error: "Unknown project" });
+          updates.projectId = projectId;
+        }
+      }
+
       if (Object.keys(updates).length === 0)
         return res.status(400).json({ error: "No valid fields to update" });
 
@@ -601,6 +777,229 @@ export function registerPropertyRoutes(app: Express): void {
       res.json(after.data() as Property);
     } catch (err: unknown) {
       res.status(500).json({ error: errMsg(err, "Failed to update property") });
+    }
+  });
+
+  // "Complete profile" wizard: save ONE section, then recalculate and store
+  // profileSteps/profileCompletion. Permission is the portfolio grant matrix
+  // keyed on property.portfolioId ("property.edit") — owners pass, an
+  // agent/legal grant with edit passes, view-only grants get 403.
+  app.patch("/api/properties/:id/profile/:section", requireAuth, async (req, res) => {
+    const { uid } = req.user!;
+    const id = reqStr(req.params.id);
+    const section = reqStr(req.params.section);
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const bad = (error: string) => res.status(400).json({ error });
+
+    try {
+      const ref = db().collection(COL.properties).doc(id);
+      const snap = await ref.get();
+      if (!snap.exists) return res.status(404).json({ error: "Property not found" });
+      const existing = snap.data() as Property;
+      const allowed = await hasPortfolioPrivilege(
+        uid,
+        existing.ownerId,
+        "property.edit",
+        existing.portfolioId ?? null,
+      );
+      if (!allowed) return res.status(404).json({ error: "Property not found" });
+
+      const updates: Record<string, unknown> = {};
+      const profile: PropertyProfile = existing.profile ?? {};
+
+      if (section === "details") {
+        const sqm = num(body.sqm);
+        if (
+          body.sqm !== undefined &&
+          body.sqm !== null &&
+          (sqm === undefined || sqm <= 0 || sqm > 10000)
+        )
+          return bad("Internal size must be between 0 and 10,000 m²");
+        const veranda = num(body.verandaSqm);
+        if (body.verandaSqm != null && (veranda === undefined || veranda < 0))
+          return bad("Covered veranda can't be negative");
+        if (body.bedrooms != null && countNum(body.bedrooms) === undefined)
+          return bad("Bedrooms must be a whole number between 0 and 50");
+        if (body.bathrooms != null && countNum(body.bathrooms) === undefined)
+          return bad("Bathrooms must be a whole number between 0 and 50");
+        const year = num(body.yearBuilt);
+        if (body.yearBuilt != null) {
+          if (year === undefined || !Number.isInteger(year) || year < 1800)
+            return bad("Enter a valid year built");
+          if (year > new Date().getFullYear()) return bad("Year built can't be in the future.");
+        }
+        const deedStatus = TITLE_STATUSES.includes(body.titleDeedStatus as TitleDeedsStatus)
+          ? (body.titleDeedStatus as TitleDeedsStatus)
+          : existing.titleDeedsStatus;
+        const deedRef = str(body.titleDeedReference, 120);
+        if (deedStatus === "issued" && !deedRef)
+          return bad("Add the title deed reference, or mark it as not issued yet.");
+
+        if (sqm !== undefined) updates.sqm = String(sqm);
+        if (body.bedrooms != null) updates.bedrooms = body.bedrooms;
+        if (body.bathrooms != null) updates.baths = body.bathrooms;
+        if (str(body.floor, 40)) updates.floor = str(body.floor, 40);
+        if (year !== undefined) updates.builtYear = String(year);
+        if (typeof body.parking === "boolean")
+          updates.parking = body.parking ? Math.max(1, existing.parking ?? 0) : 0;
+        if (typeof body.storage === "boolean") updates.storageUnit = body.storage;
+        if (ENERGY_CLASSES.includes(body.energyClass as EnergyClass))
+          updates.energyClass = body.energyClass;
+        if (deedStatus) updates.titleDeedsStatus = deedStatus;
+        profile.details = {
+          ...(veranda !== undefined ? { verandaSqm: veranda } : {}),
+          ...(["furnished", "part", "unfurnished"].includes(body.furnished as string)
+            ? { furnished: body.furnished as "furnished" | "part" | "unfurnished" }
+            : {}),
+          ...(isoDate(body.energyExpiry) ? { energyExpiry: isoDate(body.energyExpiry) } : {}),
+          ...(deedStatus === "issued" && deedRef ? { titleDeedReference: deedRef } : {}),
+        };
+      } else if (section === "ownership") {
+        const raw = Array.isArray(body.owners) ? body.owners : [];
+        const owners: ProfileOwner[] = [];
+        for (const o of raw as Record<string, unknown>[]) {
+          const share = num(o?.sharePct);
+          const name = str(o?.name, 120);
+          if (!name) return bad("Each owner needs a name");
+          if (share === undefined || share < 0.01 || share > 100)
+            return bad("Each owner's share must be between 0.01% and 100%");
+          owners.push({
+            type: o.type === "company" ? "company" : "individual",
+            name,
+            sharePct: share,
+            ...(str(o.entityId, 128) ? { entityId: str(o.entityId, 128) } : {}),
+          });
+        }
+        const total = Math.round(owners.reduce((s, o) => s + o.sharePct, 0) * 100) / 100;
+        if (owners.length > 0 && total !== 100)
+          return bad(`Owner shares add up to ${total}%. They need to total 100%.`);
+        profile.ownership = { owners };
+        if (TITLE_STATUSES.includes(body.titleDeedStatus as TitleDeedsStatus))
+          updates.titleDeedsStatus = body.titleDeedStatus;
+        // Migration bridge: legacy readers still use ownershipType/companyName.
+        const main = [...owners].sort((a, b) => b.sharePct - a.sharePct)[0];
+        if (main) {
+          updates.ownershipType = main.type;
+          if (main.type === "company") updates.companyName = main.name;
+          if (main.entityId) updates.entityId = main.entityId;
+        }
+      } else if (section === "financing") {
+        if (typeof body.hasLoan !== "boolean") return bad("Answer whether there is a loan");
+        if (!body.hasLoan) {
+          profile.financing = { hasLoan: false };
+        } else {
+          const lender = str(body.lender, 120);
+          if (!lender) return bad("Choose a lender");
+          const balance = money(body.balance);
+          if (body.balance != null && (balance === undefined || balance <= 0))
+            return bad("Outstanding balance must be more than 0");
+          const rate = num(body.ratePct);
+          if (body.ratePct != null && (rate === undefined || rate < 0 || rate > 25))
+            return bad("Interest rate must be between 0% and 25%");
+          const payment = money(body.monthlyPayment);
+          if (body.monthlyPayment != null && (payment === undefined || payment <= 0))
+            return bad("Monthly payment must be more than 0");
+          const end = monthYear(body.endDate);
+          if (end && end < new Date().toISOString().slice(0, 7))
+            return bad("The loan end date must be in the future");
+          profile.financing = {
+            hasLoan: true,
+            lender,
+            ...(balance !== undefined ? { balance } : {}),
+            ...(rate !== undefined ? { ratePct: rate } : {}),
+            ...(body.rateType === "fixed" || body.rateType === "variable"
+              ? { rateType: body.rateType }
+              : {}),
+            ...(payment !== undefined ? { monthlyPayment: payment } : {}),
+            ...(end ? { endDate: end } : {}),
+          };
+        }
+      } else if (section === "use") {
+        const use = body.use;
+        if (use !== "long_term" && use !== "short_term" && use !== "not_rented")
+          return bad("Choose how the property is used");
+        if (use !== "long_term" && (await propertyHasActiveTenancy(id)))
+          return res
+            .status(409)
+            .json({ error: "This property has an active lease. End or move the lease first." });
+        profile.use = use;
+        // Keep the legacy field in step for existing readers.
+        updates.propertyUse = use === "not_rented" ? "owner_occupied" : "rent";
+      } else if (section === "costs") {
+        const c = body as Record<string, any>;
+        for (const k of ["propertyTaxYearly", "municipalYearly", "commonMonthly"])
+          if (c[k] != null && money(c[k]) === undefined) return bad("Amounts can't be negative");
+        if (c.insurance?.premiumYearly != null && money(c.insurance.premiumYearly) === undefined)
+          return bad("Amounts can't be negative");
+        const utilities: ProfileUtility[] = [];
+        for (const u of Array.isArray(c.utilities) ? c.utilities : []) {
+          const last4 = typeof u?.accountLast4 === "string" ? u.accountLast4.trim() : "";
+          if (!/^\d{4}$/.test(last4)) return bad("Utility accounts take the last 4 digits only");
+          const provider = str(u.provider, 120);
+          if (!provider) return bad("Each utility account needs a provider");
+          utilities.push({
+            provider,
+            accountLast4: last4,
+            paidBy: u.paidBy === "tenant" ? "tenant" : "owner",
+            status: u.status === "pending" ? "pending" : "linked",
+          });
+        }
+        profile.costs = {
+          ...(money(c.propertyTaxYearly) !== undefined
+            ? { propertyTaxYearly: money(c.propertyTaxYearly) }
+            : {}),
+          ...(money(c.municipalYearly) !== undefined
+            ? { municipalYearly: money(c.municipalYearly) }
+            : {}),
+          ...(money(c.commonMonthly) !== undefined
+            ? { commonMonthly: money(c.commonMonthly) }
+            : {}),
+          insurance: {
+            ...(str(c.insurance?.provider, 120)
+              ? { provider: str(c.insurance.provider, 120) }
+              : {}),
+            ...(money(c.insurance?.premiumYearly) !== undefined
+              ? { premiumYearly: money(c.insurance.premiumYearly) }
+              : {}),
+            ...(isoDate(c.insurance?.renewalDate)
+              ? { renewalDate: isoDate(c.insurance.renewalDate) }
+              : {}),
+          },
+          utilities,
+        };
+      } else if (section === "documents") {
+        const docType = body.docType as ProfileDocType;
+        if (!PROFILE_DOC_TYPES.includes(docType)) return bad("Unknown document type");
+        const docs = { ...(profile.documents ?? {}) };
+        if (body.documentId === null) {
+          delete docs[docType];
+        } else {
+          const docId = str(body.documentId, 128);
+          if (!docId) return bad("documentId is required");
+          const docSnap = await db().collection(COL.documents).doc(docId).get();
+          const doc = docSnap.data() as DocumentRecord | undefined;
+          if (!doc || doc.propertyId !== id) return bad("Document not found on this property");
+          docs[docType] = { documentId: docId, name: doc.name, uploadedAt: doc.createdAt };
+        }
+        profile.documents = docs;
+      } else {
+        return res.status(404).json({ error: "Unknown profile section" });
+      }
+
+      const merged = { ...existing, ...updates, profile } as Property;
+      const hasTenancy = await propertyHasAnyTenancy(id);
+      const computed = withProfileCompletion(merged, hasTenancy);
+      await ref.update({
+        ...updates,
+        profile: JSON.parse(JSON.stringify(profile)),
+        profileSteps: computed.profileSteps,
+        profileCompletion: computed.profileCompletion,
+      });
+      res.json(computed);
+    } catch (err: unknown) {
+      res
+        .status(500)
+        .json({ error: errMsg(err, "Couldn't save. Check your connection and try again.") });
     }
   });
 
@@ -767,8 +1166,8 @@ export function registerPropertyRoutes(app: Express): void {
     }
   });
 
-  // Transfer ownership to another Olio user (identified by email).
-  // MVP: the recipient must already have an Olio account, and the
+  // Transfer ownership to another Nuleeo user (identified by email).
+  // MVP: the recipient must already have an Nuleeo account, and the
   // transfer happens immediately. A pending/accept flow can be layered
   // on later.
   app.post("/api/properties/:id/transfer", requireAuth, async (req, res) => {
@@ -831,7 +1230,7 @@ export function registerPropertyRoutes(app: Express): void {
         .get();
       if (userSnap.empty)
         return res.status(404).json({
-          error: "No Olio user found with that email. Ask them to sign up first.",
+          error: "No Nuleeo user found with that email. Ask them to sign up first.",
         });
       const recipient = userSnap.docs[0].data() as User;
       if (recipient.id === uid)

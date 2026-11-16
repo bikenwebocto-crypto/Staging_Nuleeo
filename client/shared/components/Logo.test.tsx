@@ -13,7 +13,7 @@ describe("Logo", () => {
     const img = container.querySelector("img");
     expect(img).not.toBeNull();
     expect(img?.getAttribute("src")).toBe("/logo-wordmark.png");
-    expect(img?.getAttribute("alt")).toBe("Olio");
+    expect(img?.getAttribute("alt")).toBe("Nuleeo");
   });
 
   it("renders the white wordmark when an explicit white color is passed", () => {
@@ -28,7 +28,7 @@ describe("Logo", () => {
   });
 
   it("respects a custom alt", () => {
-    const { container } = render(<Logo alt="Olio Wallet" />);
-    expect(container.querySelector("img")?.getAttribute("alt")).toBe("Olio Wallet");
+    const { container } = render(<Logo alt="Nuleeo Wallet" />);
+    expect(container.querySelector("img")?.getAttribute("alt")).toBe("Nuleeo Wallet");
   });
 });

@@ -29,6 +29,7 @@ import { registerProfileRoutes } from "./routes/profile";
 import { registerDocumentRoutes } from "./routes/documents";
 import { registerAccessRoutes } from "./routes/access";
 import { registerPropertyRoutes } from "./routes/properties";
+import { registerProjectRoutes } from "./routes/projects";
 import { registerFinanceRoutes } from "./routes/finance";
 import { registerDiscoveryRoutes } from "./routes/discovery";
 import { registerPlanRoutes } from "./routes/plan";
@@ -39,6 +40,7 @@ import { registerConnectRoutes } from "./routes/connect";
 import { registerTenantRoutes } from "./routes/tenant";
 import { registerWorkspaceRoutes } from "./routes/workspaces";
 import { registerEntityRoutes } from "./routes/entities";
+import { registerStructureRoutes } from "./routes/structure";
 import { registerConfigRoutes } from "./routes/config";
 import { registerMediaRoutes } from "./routes/media";
 import { registerAdminPushRoutes } from "./routes/adminPush";
@@ -190,7 +192,7 @@ async function maintenanceGate(req: Request, res: Response, next: NextFunction) 
     error: "Maintenance",
     message:
       config.maintenanceMode.message ||
-      "Olio is undergoing scheduled maintenance. We'll be back shortly.",
+      "Nuleeo is undergoing scheduled maintenance. We'll be back shortly.",
   });
 }
 
@@ -221,6 +223,7 @@ export function registerRoutes(app: Express): void {
   registerDocumentRoutes(app, { requireOwnerPlanPrivilege });
   registerAccessRoutes(app);
   registerPropertyRoutes(app);
+  registerProjectRoutes(app);
   registerFinanceRoutes(app);
   registerDiscoveryRoutes(app, { requireActivePortfolioPlanPrivilege });
   registerPlanRoutes(app);
@@ -231,6 +234,7 @@ export function registerRoutes(app: Express): void {
   registerTenantRoutes(app);
   registerWorkspaceRoutes(app);
   registerEntityRoutes(app);
+  registerStructureRoutes(app);
 
   // ── Admin surface (role + platform-matrix gated) ──────────────────
   registerConfigRoutes(app, { requireRole, requirePlatformPrivilege });

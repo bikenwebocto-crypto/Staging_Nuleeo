@@ -536,11 +536,11 @@ export function registerEmailMarketingRoutes(
     }
     res.type("text/html").send(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Confirm unsubscribe · Olio</title>
+<title>Confirm unsubscribe · Nuleeo</title>
 <style>body{font:14px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;background:#f7f7f8;margin:0;padding:60px 20px;color:#1f1f1f;text-align:center}.card{max-width:480px;margin:0 auto;background:#fff;border:1px solid #ececec;border-radius:12px;padding:32px}.btn{display:inline-block;padding:12px 24px;background:#0f0f0f;color:#fff;border:0;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}h1{margin:0 0 12px;font-size:20px}p{color:#6b7280;line-height:1.55}</style>
 </head><body><div class="card">
 <h1>Confirm unsubscribe</h1>
-<p>Click below to stop receiving Olio marketing emails. You can re-subscribe any time from Settings → Notifications.</p>
+<p>Click below to stop receiving Nuleeo marketing emails. You can re-subscribe any time from Settings → Notifications.</p>
 <form method="post" action="/api/u/${encodeURIComponent(token)}">
 <button type="submit" class="btn">Unsubscribe</button>
 </form>
@@ -980,7 +980,7 @@ function stringOrNull(v: unknown): string | null {
 function renderUnsubscribeHtml({ title, body }: { title: string; body: string }): string {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${escapeHtml(title)} · Olio</title>
+<title>${escapeHtml(title)} · Nuleeo</title>
 <style>
   body{margin:0;background:#f7f7f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f1f1f;}
   .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}

@@ -4,7 +4,7 @@ import { apiRequest, parseApiError } from "@ui/lib/queryClient";
 import { PricingModal } from "@ui/components/common/PricingModal";
 
 /**
- * Standalone chat UI for Ask Olio.
+ * Standalone chat UI for Ask Nuleeo.
  * Meant to be placed inside a ResponsiveDrawer (or any container).
  *
  * `variant` controls the outer spacing:
@@ -155,8 +155,8 @@ export function AskOlioContent({
               type="text"
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              aria-label="Ask Olio"
-              placeholder="Ask Olio…"
+              aria-label="Ask Nuleeo"
+              placeholder="Ask Nuleeo…"
               className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[40px]"
               autoFocus
             />

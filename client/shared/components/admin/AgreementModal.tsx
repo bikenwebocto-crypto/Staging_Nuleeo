@@ -307,7 +307,7 @@ export function AgreementModal({ isOpen, onClose, agreement, owner }: AgreementM
               <div className="text-right">
                 <div className="font-semibold text-foreground mb-2">Property Owner:</div>
                 <div className="text-foreground font-medium">{ownerName || "-"}</div>
-                <div className="text-muted-foreground">Managed via Olio Platform</div>
+                <div className="text-muted-foreground">Managed via Nuleeo Platform</div>
               </div>
             </div>
 
@@ -366,7 +366,7 @@ export function AgreementModal({ isOpen, onClose, agreement, owner }: AgreementM
             </div>
 
             <div className="mt-16 pt-8 border-t border-border text-center text-muted-foreground text-xs">
-              <p>This agreement is managed through the Olio Property Management platform.</p>
+              <p>This agreement is managed through the Nuleeo Property Management platform.</p>
               <p className="mt-1">For any inquiries, please contact support@oliowallet.com</p>
             </div>
           </div>

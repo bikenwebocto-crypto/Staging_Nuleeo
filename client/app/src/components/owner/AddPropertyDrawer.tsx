@@ -673,6 +673,9 @@ export function AddPropertyDrawer({ open, onOpenChange }: AddPropertyDrawerProps
       const created = (await res.json().catch(() => null)) as { id?: string } | null;
       targetPropertyId = created?.id;
       await queryClient.invalidateQueries({ queryKey: ["/api/owner/properties"] });
+      // The portfolios overview's KPI row (portfolio value / unit count) reads
+      // the scoped summary, so refresh it alongside the property list.
+      await queryClient.invalidateQueries({ queryKey: ["/api/owner/summary"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/tenant/agreements"] });
     } catch (err: any) {
       // 402 → server says "upgrade required" (unit cap reached). Surface the
@@ -1905,7 +1908,7 @@ export function AddPropertyDrawer({ open, onOpenChange }: AddPropertyDrawerProps
                     type="text"
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
-                    placeholder="e.g. Olio Holdings Ltd"
+                    placeholder="e.g. Nuleeo Holdings Ltd"
                     className="w-full bg-background border-none rounded-xl px-4 py-2.5 text-foreground font-medium placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary/20 transition"
                   />
                 </div>

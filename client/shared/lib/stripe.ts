@@ -82,7 +82,7 @@ export function dedupePreferCanonical(plans: PricedPlan[]): PricedPlan[] {
   return Array.from(byRole.values());
 }
 
-// Returns the active Stripe products mapped to their Olio plan tier.
+// Returns the active Stripe products mapped to their Nuleeo plan tier.
 // Only products with `metadata.firebaseRole` set to a known plan are returned.
 // Picks the *first* active recurring price on each product — extend this if
 // you start offering monthly + yearly side-by-side.

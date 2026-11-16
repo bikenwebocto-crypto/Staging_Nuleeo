@@ -500,7 +500,7 @@ export default function TenantSettingsPage() {
                   key: "messages" as const,
                   icon: MessageSquare,
                   title: "Messages",
-                  desc: "New messages from your landlord and Olio Support",
+                  desc: "New messages from your landlord and Nuleeo Support",
                 },
                 // "Maintenance updates" gates the tenant push sent from
                 // server/routes/adminContent.ts when an admin changes the status

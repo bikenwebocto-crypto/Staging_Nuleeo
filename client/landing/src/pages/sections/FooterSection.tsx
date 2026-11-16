@@ -108,7 +108,7 @@ export default function FooterSection() {
       <div className="border-t border-white/10">
         <div className="max-w-7xl mx-auto px-6 py-6 flex flex-col items-center gap-2 text-center">
           <p className="text-white/60 text-sm">
-            © {new Date().getFullYear()} Olio Wallet · All rights reserved
+            © {new Date().getFullYear()} Nuleeo Wallet · All rights reserved
           </p>
           <p className="text-white/60 text-sm">Developed by LiveNow Strategic Business Systems</p>
           <button

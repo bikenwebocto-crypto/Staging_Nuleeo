@@ -32,7 +32,7 @@ function statusFor(detail: TransferError): { status: number; error: string; extr
     case "recipient_not_found":
       return {
         status: 404,
-        error: "No Olio user found for that recipient. Ask them to sign up first.",
+        error: "No Nuleeo user found for that recipient. Ask them to sign up first.",
       };
     case "already_owner":
       return { status: 400, error: "That user already owns this portfolio." };

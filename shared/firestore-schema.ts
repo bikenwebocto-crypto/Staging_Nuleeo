@@ -61,6 +61,8 @@ export const COL = {
   // suggest step. Surfaced to platform admins as a queue of investment
   // intent to follow up on.
   suggestionRequests: "suggestionRequests",
+  // Owner-defined groupings of properties (e.g. "Limassol Seafront"). See `Project`.
+  projects: "projects",
   // Per-listing buyer interest: created when an owner clicks "I'm interested"
   // on a marketplace listing detail page. Distinct from suggestionRequests
   // (those are open-ended). Snapshots the listing summary so the admin queue
@@ -1300,7 +1302,7 @@ export interface NotificationPrefs {
   rentReminders?: boolean; // tenant — rent due / overdue
   rentPayments?: boolean; // owner (rent logged/received) + tenant (owner confirmed your payment)
   propertyActivity?: boolean; // tenant (new lease, tenancy ended) + owner (lease accepted/declined, plan changes)
-  messages?: boolean; // tenant + owner (chat) + tenant (Olio Support)
+  messages?: boolean; // tenant + owner (chat) + tenant (Nuleeo Support)
   maintenance?: boolean; // owner (new request) + tenant (status updates)
   documents?: boolean; // tenant — new document from landlord (owners receive none)
   // Rent-increase (indexation) notices — sent to BOTH the tenant and the owner
@@ -1574,7 +1576,10 @@ export interface Entity {
   updatedAt?: string;
 }
 
-export type PropertyType = "Apartment" | "House" | "Villa" | "Commercial" | "Plot";
+// "Building" = multi-unit block; "Other" = parking, storage, land…, described
+// by Property.propertyTypeOther.
+export type PropertyType =
+  "Apartment" | "House" | "Villa" | "Commercial" | "Plot" | "Building" | "Other";
 // "F-G" = merged low-efficiency class; "N/A" = rating unknown. Legacy "A+"/"F"/"G"
 // remain valid so previously-saved properties still type-check and display.
 export type EnergyClass = "A+" | "A" | "B" | "C" | "D" | "E" | "F" | "G" | "F-G" | "N/A";
@@ -1617,6 +1622,14 @@ export interface Property {
   // Optional extended descriptors collected by AddPropertyDrawer.
   // Persisted from the owner-side form; consumed by the tenant Agreements page.
   propertyType?: PropertyType;
+  propertyTypeOther?: string; // free text when propertyType === "Other"
+  // Optional grouping (Project.id) chosen on Add asset.
+  projectId?: string;
+  // Set on a unit created by Add building: the parent building's Property.id.
+  // Units are full Property docs so each carries its own use, tenant and
+  // agreements; the building holds the whole-building financials.
+  parentPropertyId?: string;
+  unitLabel?: string; // e.g. "A1"; set together with parentPropertyId
   buildingName?: string;
   floor?: string;
   sqm?: string;
@@ -1660,6 +1673,11 @@ export interface Property {
   // been purged (idempotency: already-purged properties are skipped). The
   // property/agreement/tenant/activity are RETAINED — only documents are gone.
   docsPurgedAt?: string;
+  // "Complete profile" wizard data (shared/propertyProfile.ts). Recalculated
+  // server-side on every PATCH /api/properties/:id/profile/:section.
+  profile?: import("./propertyProfile").PropertyProfile;
+  profileCompletion?: number; // 0–100
+  profileSteps?: Partial<Record<import("./propertyProfile").ProfileSection, boolean>>;
 }
 
 // "active" — normal, owner-visible. "inactive" — soft-deactivated by the
@@ -1694,7 +1712,7 @@ export interface Unit {
   docsPurgedAt?: string;
 }
 
-// "invited" — owner added this email but no Olio account exists yet (linked on
+// "invited" — owner added this email but no Nuleeo account exists yet (linked on
 // signup). "pending" — account linked, lease awaiting the tenant's approval.
 // "active" — tenant approved. "declined" — tenant rejected the lease.
 export type TenantStatus = "active" | "expired" | "pending" | "invited" | "declined";
@@ -1704,6 +1722,7 @@ export interface Tenant {
   userId?: string; // User.id once they accept the invite
   name: string;
   email: string;
+  phone?: string;
   unitId: string; // Unit.id
   propertyId: string; // Property.id (denormalized for admin queries)
   ownerId: string; // User.id
@@ -1726,6 +1745,15 @@ export interface Tenant {
   // the ex-tenant can still settle and the owner sees the arrear; cleared to 0
   // / removed once paid in full. Mirrors Agreement.closingBalance.amount.
   outstandingBalance?: number;
+  // Tenant-portal invite tracking (Tenants & leases page). `invitedAt` is the
+  // last time the invite email went out; `inviteSkipped` is set when the owner
+  // created the lease with "email an invite" unchecked, and cleared once they
+  // invite from the Tenants page. Absent on legacy rows ⇒ treated as invited.
+  invitedAt?: string;
+  inviteSkipped?: boolean;
+  // Last owner-triggered rent reminder (POST /api/owner/tenants/:id/remind).
+  // Drives a short cooldown so a double-click can't spam the tenant.
+  lastReminderAt?: string;
 }
 
 // "pending_tenant" — owner created the lease; awaiting the tenant's in-app
@@ -1889,6 +1917,9 @@ export interface Agreement {
 
   // Optional lease descriptors surfaced on the tenant Agreements page.
   leaseType?: LeaseType;
+  // ISO date (YYYY-MM-DD) the owner asked to be reminded about the lease
+  // ending (Add asset → "Remind me 3 months before the lease ends").
+  endReminderDate?: string;
   monthlyRent?: number;
   deposit?: number;
   noticePeriodMonths?: number;
@@ -1969,7 +2000,7 @@ export interface PortfolioAccessContact {
   // immediately and they can see the portfolio next time they sign in.
   contactUserId?: string;
   // Currently UNUSED. The access route (server/routes/access.ts) now REQUIRES
-  // the invitee to already have an Olio account (returns 404 otherwise) and
+  // the invitee to already have an Nuleeo account (returns 404 otherwise) and
   // never auto-provisions one, so no inviteLink is generated or persisted.
   // Kept for legacy docs created before the require-existing-account change.
   inviteLink?: string;
@@ -2406,6 +2437,17 @@ export interface MarketplaceListing {
   status: MarketplaceListingStatus;
   // Optional outbound link, e.g. to a broker's listing or property docs.
   externalUrl?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+// Owner-defined grouping of properties (e.g. a development such as
+// "Limassol Seafront"). Properties link via Property.projectId.
+export interface Project {
+  id: string;
+  ownerId: string; // User.id
+  portfolioId: string; // Portfolio.id
+  name: string;
   createdAt: string;
   updatedAt?: string;
 }

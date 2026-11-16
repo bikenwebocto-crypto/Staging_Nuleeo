@@ -311,7 +311,7 @@ export default function TenantDashboard() {
                   </div>
                   <Sparkles size={16} className="absolute -top-1 -right-1 text-amber-300" />
                 </div>
-                <h2 className="text-2xl font-bold text-white mb-2">Welcome to Olio Wallet</h2>
+                <h2 className="text-2xl font-bold text-white mb-2">Welcome to Nuleeo Wallet</h2>
                 <p className="text-white/60 text-sm max-w-sm mb-7 leading-relaxed">
                   You're not renting any units yet. As soon as your landlord adds you to a property,
                   you'll see your rent, payment history, and maintenance updates right here.
@@ -502,7 +502,7 @@ export default function TenantDashboard() {
                     </div>
                     <Sparkles size={14} className="absolute -top-1 -right-1 text-amber-300" />
                   </div>
-                  <h2 className="text-xl font-bold text-white mb-2">Welcome to Olio Wallet</h2>
+                  <h2 className="text-xl font-bold text-white mb-2">Welcome to Nuleeo Wallet</h2>
                   <p className="text-white/60 text-sm max-w-xs mb-6 leading-relaxed">
                     You're not renting any units yet. When your landlord adds you to a property,
                     your rent and updates show up here.

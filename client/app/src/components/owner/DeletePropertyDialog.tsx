@@ -49,7 +49,7 @@ export function DeletePropertyDialog({
       onOpenChange(false);
       setConfirmText("");
       setError(false);
-      navigate("/properties");
+      navigate("/portfolios");
     } catch (err: any) {
       toast({
         title: "Could not delete property",

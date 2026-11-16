@@ -4,7 +4,7 @@
 // 6 chars from a confusable-free base32 alphabet (no 0/O/1/I/L) → 32^6 ≈ 1.07B
 // combinations. We do not check for collisions — at our user volume the
 // birthday probability is negligible, and the value is namespaced with "OLIO-"
-// so the displayed code is always recognizably an Olio portfolio id.
+// so the displayed code is always recognizably an Nuleeo portfolio id.
 // Express 5 types route params and query values as `string | string[]`
 // (path-to-regexp v8 can yield array params from `*`/`+` patterns, and repeated
 // query keys like `?a=1&a=2` parse to an array). This app uses neither — every

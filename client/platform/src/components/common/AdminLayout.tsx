@@ -68,7 +68,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             headerExtras={<AdminNotificationsButton />}
           />
 
-          <ResponsiveDrawer open={isAskOlioOpen} onOpenChange={setIsAskOlioOpen} title="Ask Olio">
+          <ResponsiveDrawer open={isAskOlioOpen} onOpenChange={setIsAskOlioOpen} title="Ask Nuleeo">
             <AskOlioContent />
           </ResponsiveDrawer>
 

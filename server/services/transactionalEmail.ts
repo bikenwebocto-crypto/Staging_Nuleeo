@@ -16,7 +16,7 @@
 
 import { sendEmailViaResend } from "./resend";
 
-const APP_NAME = "Olio Wallet";
+const APP_NAME = "Nuleeo Wallet";
 
 export interface UserInviteEmailInput {
   email: string;
@@ -24,8 +24,8 @@ export interface UserInviteEmailInput {
   lastName?: string;
   link: string;
   // Human-friendly attribution for the email body — "Jane Smith
-  // invited you to Olio Wallet" reads better than "An admin invited
-  // you". Falls back to "the Olio team" when not provided.
+  // invited you to Nuleeo Wallet" reads better than "An admin invited
+  // you". Falls back to "the Nuleeo team" when not provided.
   invitedByName?: string;
 }
 
@@ -37,7 +37,7 @@ export async function sendUserInviteEmail(input: UserInviteEmailInput): Promise<
   const inviter =
     input.invitedByName?.trim() && input.invitedByName.trim().length > 0
       ? input.invitedByName.trim()
-      : "the Olio team";
+      : "the Nuleeo team";
   const recipientName = `${input.firstName ?? ""} ${input.lastName ?? ""}`.trim() || input.email;
   const html = renderUserInviteHtml({
     recipientName,
@@ -68,7 +68,7 @@ export interface PortfolioAccessInviteEmailInput {
 
 // Sent when an owner adds someone as a portfolio access contact via
 // PUT /api/owner/access-contacts/:type. The invitee already has an
-// Olio account (the endpoint refuses if they don't); this email +
+// Nuleeo account (the endpoint refuses if they don't); this email +
 // the in-app push are the two channels that surface the pending
 // invite. Tagged "portfolio-access-invite".
 export async function sendPortfolioAccessInviteEmail(
@@ -106,7 +106,7 @@ export interface TenantAgreementInviteEmailInput {
   // Address / building label the owner picked for the lease. Falls
   // back to "a property" when missing.
   propertyLabel?: string;
-  // True when the recipient already has a linked Olio account; flips
+  // True when the recipient already has a linked Nuleeo account; flips
   // the CTA copy from "Sign up" to "Sign in" so we don't confuse
   // existing users.
   hasAccount: boolean;
@@ -114,7 +114,7 @@ export interface TenantAgreementInviteEmailInput {
 
 // Sent when an owner creates a rental agreement via POST
 // /api/owner/agreements. Goes to the tenant's email regardless of
-// whether they have an Olio account yet — for existing accounts the
+// whether they have an Nuleeo account yet — for existing accounts the
 // email + the in-app push are redundant channels, for new emails it's
 // the only way the tenant finds out a lease is waiting. Critically does
 // NOT carry a password-setup or signup token (the recipient hasn't
@@ -154,6 +154,51 @@ export async function sendTenantAgreementInviteEmail(
     html,
     text,
     tags: [{ name: "type", value: "tenant-agreement-invite" }],
+  });
+}
+
+export interface TenantRentReminderEmailInput {
+  email: string;
+  ownerName: string;
+  propertyLabel: string;
+  amount: number;
+  dueDate: string | null;
+}
+
+// Owner-triggered rent reminder from Tenants & leases, for tenants who haven't
+// logged in yet (logged-in tenants get it in-app via push instead). Points at
+// the tenant agreements page; no credentialed link. Tagged "tenant-rent-reminder".
+export async function sendTenantRentReminderEmail(
+  input: TenantRentReminderEmailInput,
+): Promise<void> {
+  const propertyLabel = input.propertyLabel?.trim() || "your rental";
+  const amount = `€${Math.round(input.amount).toLocaleString("en-GB")}`;
+  const due = input.dueDate
+    ? new Date(input.dueDate).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : null;
+  const url = "https://app.oliowallet.com/tenant";
+  const line = `${input.ownerName} is reminding you that rent of ${amount} for ${propertyLabel}${due ? ` was due on ${due}` : " is due"}.`;
+  const html = shell({
+    title: "Rent reminder",
+    body: `
+        <h1 class="text" style="margin:0 0 12px;font-size:24px;line-height:1.25;font-weight:600;letter-spacing:-0.02em;color:#171717;">Rent reminder</h1>
+        <p class="muted" style="margin:0 0 28px;font-size:15px;line-height:1.55;color:#525252;">${escapeHtml(line)}</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+          <tr><td style="border-radius:10px;background:#171717;">
+            <a href="${escapeAttr(url)}" class="btn" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;background:#171717;">Open ${escapeHtml(APP_NAME)}</a>
+          </td></tr>
+        </table>`,
+  });
+  await sendEmailViaResend({
+    to: input.email,
+    subject: `Rent reminder for ${propertyLabel}`,
+    html,
+    text: `Rent reminder\n\n${line}\n\nSign in or sign up with this email to pay:\n${url}\n`,
+    tags: [{ name: "type", value: "tenant-rent-reminder" }],
   });
 }
 

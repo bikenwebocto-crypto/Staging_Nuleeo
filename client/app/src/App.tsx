@@ -81,13 +81,31 @@ const BusinessPortfolioPage = lazyRoute(() => import("@/pages/owner/BusinessPort
 const BusinessDetailPage = lazyRoute(() => import("@/pages/owner/BusinessDetailPage"), {
   buckets: ["owner"],
 });
-const PropertiesPage = lazyRoute(() => import("@/pages/owner/PropertiesPage"), {
+const PortfoliosPage = lazyRoute(() => import("@/pages/owner/PortfoliosPage"), {
+  buckets: ["owner"],
+});
+const StructurePage = lazyRoute(() => import("@/pages/owner/StructurePage"), {
   buckets: ["owner"],
 });
 const PropertyDetailsPage = lazyRoute(() => import("@/pages/owner/PropertyDetailsPage"), {
   buckets: ["owner"],
 });
+const AddAssetPage = lazyRoute(() => import("@/pages/owner/AddAssetPage"), {
+  buckets: ["owner"],
+});
+const PropertyProfileWizard = lazyRoute(() => import("@/pages/owner/PropertyProfileWizard"), {
+  buckets: ["owner"],
+});
 const TenantsPage = lazyRoute(() => import("@/pages/owner/TenantsPage"), { buckets: ["owner"] });
+const TenantsLeasesPage = lazyRoute(() => import("@/pages/owner/TenantsLeasesPage"), {
+  buckets: ["owner"],
+});
+const TransactionsPage = lazyRoute(() => import("@/pages/owner/TransactionsPage"), {
+  buckets: ["owner"],
+});
+const AddTenantPage = lazyRoute(() => import("@/pages/owner/AddTenantPage"), {
+  buckets: ["owner"],
+});
 // /insights pulls in recharts â€” owner-only AND heavy, so it is never prefetched.
 const PortfolioAnalyticsPage = lazyRoute(() => import("@/pages/owner/PortfolioAnalyticsPage"), {
   buckets: ["owner"],
@@ -97,6 +115,10 @@ const PortfolioAccessPage = lazyRoute(() => import("@/pages/owner/PortfolioAcces
   buckets: ["owner"],
 });
 const BankingPage = lazyRoute(() => import("@/pages/owner/BankingPage"), { buckets: ["owner"] });
+const CardsPage = lazyRoute(() => import("@/pages/owner/CardsPage"), { buckets: ["owner"] });
+const TransfersPage = lazyRoute(() => import("@/pages/owner/TransfersPage"), {
+  buckets: ["owner"],
+});
 
 const TenantDashboard = lazyRoute(() => import("@/pages/tenant/TenantDashboard"), {
   buckets: ["tenant"],
@@ -388,7 +410,7 @@ function OwnerOnlyMarketplaceDetail() {
   return <MarketplaceListingDetailPage />;
 }
 
-// Gate for the owner-experience routes (/owner/*, /properties, /tenants,
+// Gate for the owner-experience routes (/owner/*, /portfolios, /tenants,
 // /banking, /portfolio-access). A tenant who deep-links into one of these
 // would otherwise render owner chrome over data they don't have â€” so we
 // bounce non-owner-experience users to their own dashboard. Uses the SAME
@@ -410,7 +432,7 @@ function RequireOwnerExperience({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-// Plan gate for the standalone Ask Olio page (/ask). The AI assistant is an
+// Plan gate for the standalone Ask Nuleeo page (/ask). The AI assistant is an
 // owner feature whose availability rides on the ACTIVE PORTFOLIO's plan
 // (askOlio.access â€” granted on advance/pro/business, not basic), mirroring the
 // server gate on /api/ask (requireActivePortfolioPlanPrivilege("askOlio.access")).
@@ -490,9 +512,30 @@ function AuthenticatedShell() {
               <PrivacyPage />
             </RequireOwnerExperience>
           </Route>
-          <Route path="/properties">
+          <Route path="/structure">
             <RequireOwnerExperience>
-              <PropertiesPage />
+              <StructurePage />
+            </RequireOwnerExperience>
+          </Route>
+          <Route path="/portfolios">
+            <RequireOwnerExperience>
+              <PortfoliosPage />
+            </RequireOwnerExperience>
+          </Route>
+          <Route path="/portfolios/new">
+            <RequireOwnerExperience>
+              <AddAssetPage />
+            </RequireOwnerExperience>
+          </Route>
+          {/* Legacy list URL retained so old bookmarks and shared links still land
+              on the portfolios overview. Property detail URLs stay under
+              /properties/:id because they are also the public share links. */}
+          <Route path="/properties">
+            <Redirect to="/portfolios" />
+          </Route>
+          <Route path="/properties/:id/profile">
+            <RequireOwnerExperience>
+              <PropertyProfileWizard />
             </RequireOwnerExperience>
           </Route>
           <Route path="/properties/:id">
@@ -505,6 +548,22 @@ function AuthenticatedShell() {
               <TenantsPage />
             </RequireOwnerExperience>
           </Route>
+          {/* Tenants & leases roster + full-page Add tenant form. */}
+          <Route path="/owner/tenants_leases">
+            <RequireOwnerExperience>
+              <TenantsLeasesPage />
+            </RequireOwnerExperience>
+          </Route>
+          <Route path="/owner/transaction">
+            <RequireOwnerExperience>
+              <TransactionsPage />
+            </RequireOwnerExperience>
+          </Route>
+          <Route path="/owner/tenants_leases/new">
+            <RequireOwnerExperience>
+              <AddTenantPage />
+            </RequireOwnerExperience>
+          </Route>
           <Route path="/portfolio-access">
             <RequireOwnerExperience>
               <PortfolioAccessPage />
@@ -513,6 +572,16 @@ function AuthenticatedShell() {
           <Route path="/banking">
             <RequireOwnerExperience>
               <BankingPage />
+            </RequireOwnerExperience>
+          </Route>
+          <Route path="/owner/cards">
+            <RequireOwnerExperience>
+              <CardsPage />
+            </RequireOwnerExperience>
+          </Route>
+          <Route path="/owner/transfers">
+            <RequireOwnerExperience>
+              <TransfersPage />
             </RequireOwnerExperience>
           </Route>
 
@@ -549,7 +618,7 @@ function AuthenticatedShell() {
           <Route path="/expert">
             <ExpertPage />
           </Route>
-          {/* Olio Insights â€” portfolio analytics (occupancy, cash flow, exports). */}
+          {/* Nuleeo Insights â€” portfolio analytics (occupancy, cash flow, exports). */}
           <Route path="/insights">
             <PortfolioAnalyticsPage />
           </Route>
@@ -589,7 +658,7 @@ function AuthenticatedShell() {
           <Route path="/tenant-profile">
             <Redirect to="/tenant" />
           </Route>
-          {/* Analytics was renamed to Olio Insights and moved to /insights. */}
+          {/* Analytics was renamed to Nuleeo Insights and moved to /insights. */}
           <Route path="/analytics">
             <Redirect to="/insights" />
           </Route>

@@ -1,4 +1,4 @@
-// Pure, framework-agnostic analytics for the owner "Olio Insights" page.
+// Pure, framework-agnostic analytics for the owner "Nuleeo Insights" page.
 //
 // NO react / firebase / recharts imports — same discipline as
 // shared/realizedRent.ts — so every function here is unit-testable in

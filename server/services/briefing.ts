@@ -713,7 +713,7 @@ function renderPropertyBriefing(input: BriefingInput): string {
   // carries the property photo and name rather than starting cold.
   const headerHtml = `
     <div class="brandbar">
-      <span class="logo">OLIO</span>
+      <span class="logo">NULEEO</span>
       <span>Property briefing · ${escapeHtml(fmtDate(input.generatedAt))}</span>
     </div>
 
@@ -731,7 +731,7 @@ function renderPropertyBriefing(input: BriefingInput): string {
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Property Briefing — ${escapeHtml(propTitle)} — Olio</title>
+  <title>Property Briefing — ${escapeHtml(propTitle)} — Nuleeo</title>
 </head>
 <body>
   <div class="page">
@@ -800,7 +800,7 @@ function renderPropertyBriefing(input: BriefingInput): string {
     </div>
 
     <footer>
-      <span class="logo">OLIO</span>
+      <span class="logo">NULEEO</span>
       <span>Prepared for ${escapeHtml(input.ownerName || input.ownerEmail)} · Confidential</span>
     </footer>
   </div>
@@ -945,13 +945,13 @@ function renderPortfolioBriefing(input: BriefingInput): string {
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Portfolio Briefing — Olio</title>
+  <title>Portfolio Briefing — Nuleeo</title>
 </head>
 <body>
   <div class="page">
     <style>${STYLE}</style>
     <div class="brandbar">
-      <span class="logo">OLIO</span>
+      <span class="logo">NULEEO</span>
       <span>Portfolio briefing · ${generated}</span>
     </div>
 
@@ -1080,7 +1080,7 @@ function renderPortfolioBriefing(input: BriefingInput): string {
     </div>
 
     <footer>
-      <span class="logo">OLIO</span>
+      <span class="logo">NULEEO</span>
       <span>Prepared for ${ownerLabel} · ${generated} · Confidential</span>
     </footer>
   </div>

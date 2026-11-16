@@ -1038,7 +1038,7 @@ export function EditPropertyDrawer({ open, onOpenChange, property }: EditPropert
                 type="text"
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="e.g. Olio Holdings Ltd"
+                placeholder="e.g. Nuleeo Holdings Ltd"
                 className={inputCls}
               />
             </div>

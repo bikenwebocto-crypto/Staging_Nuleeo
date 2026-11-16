@@ -13,13 +13,13 @@ import { Logo } from "@ui/components/Logo";
 import { usePublicProperty } from "@/lib/publicQueries";
 import { PublicPropertyView } from "@/components/common/PublicPropertyView";
 
-// Thin top bar with the Olio wordmark and a sign-in CTA — gives the
+// Thin top bar with the Nuleeo wordmark and a sign-in CTA — gives the
 // shareable page an identity and a path into the product without
 // exposing any of the authenticated chrome.
 function PublicHeader() {
   return (
     <header className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 bg-background/80 backdrop-blur-md border-b border-border">
-      <a href="/" aria-label="Olio" className="flex items-center">
+      <a href="/" aria-label="Nuleeo" className="flex items-center">
         <Logo variant="wordmark" className="h-7 w-auto" />
       </a>
       <a
@@ -74,7 +74,7 @@ export default function PublicPropertyPage({ id }: { id: string }) {
             href="/auth"
             className="mt-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium"
           >
-            Go to Olio
+            Go to Nuleeo
           </a>
         </div>
       </div>
@@ -87,7 +87,7 @@ export default function PublicPropertyPage({ id }: { id: string }) {
       <PublicPropertyView property={property}>
         {/* Foot CTA — invite the visitor into the product. */}
         <div className="mt-8 bg-card p-6 rounded-2xl border border-border text-center">
-          <p className="text-foreground font-semibold mb-1">Manage your properties with Olio</p>
+          <p className="text-foreground font-semibold mb-1">Manage your properties with Nuleeo</p>
           <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">
             Track value, rent, tenants, and documents — all in one place.
           </p>

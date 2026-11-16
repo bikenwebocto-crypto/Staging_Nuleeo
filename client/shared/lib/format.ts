@@ -1,4 +1,4 @@
-// Project-wide formatters. Olio is Cyprus-based with the euro as the default
+// Project-wide formatters. Nuleeo is Cyprus-based with the euro as the default
 // currency, so en-IE is the canonical locale (DD/MM/YYYY dates, €1,234.50).
 // Use these instead of bespoke per-file Intl.NumberFormat calls so display
 // stays consistent across owner/tenant/admin surfaces.

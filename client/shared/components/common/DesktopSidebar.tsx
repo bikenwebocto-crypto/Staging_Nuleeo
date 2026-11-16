@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { Fragment, ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@ui/lib/utils";
 import { Logo } from "@ui/components/Logo";
@@ -22,6 +22,9 @@ export interface SidebarMenuItem {
   // Optional unread/notification count. When > 0 a count pill renders at the
   // right of the row (e.g. unread messages). Omitted/0 → no pill.
   badge?: number;
+  // Optional group heading (e.g. "Workspace", "Manage"). A heading renders
+  // above the first item of each new section.
+  section?: string;
 }
 
 export interface DesktopSidebarProps {
@@ -94,7 +97,7 @@ export function DesktopSidebar({
 
       <div
         className={cn(
-          "hidden md:flex flex-col bg-card h-dvh sticky top-0 z-50 p-4 border-r border-border dark:border-transparent overflow-hidden w-64",
+          "nuleeo-sidebar hidden md:flex flex-col bg-card h-dvh sticky top-0 z-50 p-4 border-r border-border dark:border-transparent overflow-hidden w-64",
           className,
         )}
       >
@@ -104,8 +107,19 @@ export function DesktopSidebar({
 
         <nav className="flex-1 min-h-0 overflow-y-auto space-y-0.5 -mx-2 px-2">
           {items
-            .filter((item) => item.label !== "Ask Olio")
-            .map((item) => {
+            .filter((item) => item.label !== "Ask Nuleeo")
+            .map((item, idx, arr) => {
+              const heading =
+                item.section && item.section !== arr[idx - 1]?.section ? (
+                  <p
+                    className={cn(
+                      "px-3 pb-1.5 text-xs text-muted-foreground",
+                      idx > 0 ? "pt-4" : "pt-1",
+                    )}
+                  >
+                    {item.section}
+                  </p>
+                ) : null;
               // Active: exact match, or nested route (skip top-level role roots
               // to avoid false matches against e.g. /owner vs /owner/agreements).
               const isTopLevel = ["/", "/tenant", "/admin", "/owner"].includes(item.path);
@@ -146,26 +160,29 @@ export function DesktopSidebar({
               }
 
               return (
-                <Link key={item.label} href={item.path}>
-                  <div
-                    className={itemClasses}
-                    onMouseEnter={onItemHover ? () => onItemHover(item.path) : undefined}
-                    onFocus={onItemHover ? () => onItemHover(item.path) : undefined}
-                  >
-                    {iconEl}
-                    <span className="flex-1 truncate">{item.label}</span>
-                    {(item.badge ?? 0) > 0 && (
-                      <span
-                        className={cn(
-                          "ml-auto shrink-0 min-w-[18px] h-[18px] px-1.5 rounded-full text-[10px] font-bold leading-[18px] text-center",
-                          "bg-primary text-primary-foreground",
-                        )}
-                      >
-                        {item.badge! > 99 ? "99+" : item.badge}
-                      </span>
-                    )}
-                  </div>
-                </Link>
+                <Fragment key={item.label}>
+                  {heading}
+                  <Link href={item.path}>
+                    <div
+                      className={itemClasses}
+                      onMouseEnter={onItemHover ? () => onItemHover(item.path) : undefined}
+                      onFocus={onItemHover ? () => onItemHover(item.path) : undefined}
+                    >
+                      {iconEl}
+                      <span className="flex-1 truncate">{item.label}</span>
+                      {(item.badge ?? 0) > 0 && (
+                        <span
+                          className={cn(
+                            "ml-auto shrink-0 min-w-[18px] h-[18px] px-1.5 rounded-full text-[10px] font-bold leading-[18px] text-center",
+                            "bg-primary text-primary-foreground",
+                          )}
+                        >
+                          {item.badge! > 99 ? "99+" : item.badge}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                </Fragment>
               );
             })}
         </nav>
@@ -233,7 +250,7 @@ export function DesktopSidebar({
                 </div>
               )}
               <span className="text-[11px] text-muted-foreground/60 font-medium tracking-wide">
-                Olio Wallet v1.0
+                Nuleeo Wallet v1.0
               </span>
             </div>
           </div>

@@ -123,7 +123,7 @@ export default function Navbar() {
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             className="flex items-center transition-opacity duration-300 hover:opacity-80"
-            aria-label="Olio home"
+            aria-label="Nuleeo home"
           >
             <Logo variant="wordmark" color={scrolled ? "auto" : "white"} className="h-7 w-auto" />
           </button>

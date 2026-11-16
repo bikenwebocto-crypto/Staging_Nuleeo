@@ -23,7 +23,10 @@ import { authorizePortfolioRead, resolveOwnerScope } from "../services/ownerScop
 import { ensurePortfolio, loadPortfolioBanking } from "../services/portfolioBanking";
 import { occupiedPropertyIds } from "../services/occupancy";
 import { reqStr } from "../util";
-import { sendTenantAgreementInviteEmail } from "../services/transactionalEmail";
+import {
+  sendTenantAgreementInviteEmail,
+  sendTenantRentReminderEmail,
+} from "../services/transactionalEmail";
 import {
   COL,
   MAX_INDEXATION_RATE_PCT,
@@ -42,6 +45,7 @@ import {
 } from "../../shared/firestore-schema";
 import { isRealizedRent } from "../../shared/realizedRent";
 import { derivePaymentStatus } from "../../shared/paymentStatus";
+import { sanitizeText } from "../services/unicodeSanitize";
 
 export interface PortfolioDeps {
   requireOwnerPlanPrivilege: (p: OwnerPlanPrivilegeKey) => RequestHandler;
@@ -304,6 +308,10 @@ export function registerPortfolioRoutes(
             agreementValue: a.agreementValue,
             startDate: a.startDate,
             endDate: a.endDate,
+            // When the tenancy actually closed. A terminated lease ends early,
+            // so occupancy history must use terminatedAt rather than endDate.
+            terminatedAt: a.terminatedAt ?? null,
+            expiredAt: a.expiredAt ?? null,
             signedAt,
             // Fresh signed URL minted below from signedLeaseDocument.storagePath;
             // falls back to the legacy documentUrl when no attachment exists.
@@ -400,6 +408,20 @@ export function registerPortfolioRoutes(
       const usersById = new Map<string, User>();
       userDocs.forEach((s) => s.exists && usersById.set(s.id, s.data() as User));
 
+      // Lease window per tenancy (Tenants & leases table). A tenancy normally
+      // has one agreement; if several exist (renewal), surface the newest.
+      const agreementSnap = await db()
+        .collection(COL.agreements)
+        .where("portfolioId", "==", portfolioId)
+        .get();
+      const agreementByTenancy = new Map<string, Agreement>();
+      agreementSnap.docs.forEach((d) => {
+        const a = d.data() as Agreement;
+        if (a.status === "draft") return;
+        const prev = agreementByTenancy.get(a.tenantId);
+        if (!prev || prev.createdAt < a.createdAt) agreementByTenancy.set(a.tenantId, a);
+      });
+
       // Payment status per tenancy is DERIVED from the rent ledger, not
       // Unit.paymentStatus (never written for owner-created properties — they
       // have no Unit doc, so the tile was permanently null). Rule: overdue when
@@ -460,12 +482,33 @@ export function registerPortfolioRoutes(
           const user = t.userId ? usersById.get(t.userId) : undefined;
           // Prefer the registered tenant's real name over the email placeholder.
           const fullName = user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() : "";
+          const agreement = agreementByTenancy.get(t.id);
+          // Portal state: "active" once linked to a User; otherwise "invited"
+          // unless the owner opted out of the invite at creation.
+          const portalStatus: "active" | "invited" | "not_invited" = t.userId
+            ? "active"
+            : t.inviteSkipped
+              ? "not_invited"
+              : "invited";
           return {
             id: t.id,
             userId: t.userId ?? null,
             name: fullName || t.name,
             email: t.email ?? user?.email ?? "",
-            phone: user?.phone ?? null,
+            phone: user?.phone ?? t.phone ?? null,
+            portalStatus,
+            lastLoginAt: user?.lastSeenAt ?? user?.lastLoginAt ?? null,
+            invitedAt: t.invitedAt ?? null,
+            agreementId: agreement?.id ?? null,
+            agreementStatus: agreement?.status ?? null,
+            leaseStart: agreement?.startDate ?? null,
+            leaseEnd: agreement?.endDate ?? null,
+            propertyName: property?.name ?? null,
+            propertyType: property?.propertyType ?? null,
+            parentPropertyId: property?.parentPropertyId ?? null,
+            projectId: property?.projectId ?? null,
+            ownershipType: property?.ownershipType ?? null,
+            companyName: property?.companyName ?? null,
             status: t.status,
             rentAmount: t.rentAmount ?? unit?.rentAmount ?? 0,
             nextPayment: t.nextPayment ?? unit?.nextPaymentDate ?? null,
@@ -614,6 +657,13 @@ export function registerPortfolioRoutes(
       const rentAmount = num(body.rentAmount) ?? 0;
       const deposit = num(body.deposit) ?? 0;
       const startDate = str(body.startDate);
+      // Optional extras from Add asset → Add tenant.
+      const tenantName = sanitizeText(str(body.tenantName, 120), 120) || undefined;
+      const tenantPhone = str(body.tenantPhone, 40).replace(/[^\d+()\s-]/g, "") || undefined;
+      const sendInvite = body.sendInvite !== false;
+      const endReminderDate = /^\d{4}-\d{2}-\d{2}$/.test(str(body.endReminderDate, 10))
+        ? str(body.endReminderDate, 10)
+        : undefined;
       const signatureDate = str(body.signatureDate) || undefined;
       const nextPaymentDate = str(body.nextPaymentDate) || undefined;
       // The day of the month rent falls due. The form doesn't collect it
@@ -846,7 +896,7 @@ export function registerPortfolioRoutes(
         // already exists for this email. We DO NOT pre-create accounts
         // on arbitrary emails — that path used to return a password-
         // reset link to the OWNER, who could then take over the
-        // victim's email entirely. If the tenant doesn't have an Olio
+        // victim's email entirely. If the tenant doesn't have an Nuleeo
         // account yet, the tenancy is stored with userId=null +
         // status="invited". When the real tenant signs up at
         // app.oliowallet.com, /api/me auto-links pending tenancies by
@@ -925,7 +975,8 @@ export function registerPortfolioRoutes(
         const tenantDoc: Tenant = {
           id: tenantRef.id,
           userId: tenantUid,
-          name: tenantEmail,
+          name: tenantName ?? tenantEmail,
+          ...(tenantPhone ? { phone: tenantPhone } : {}),
           email: tenantEmail,
           unitId,
           propertyId,
@@ -934,6 +985,7 @@ export function registerPortfolioRoutes(
           rentAmount,
           status: tenantUid ? "pending" : "invited",
           ...(effectiveNextPaymentDate ? { nextPayment: effectiveNextPaymentDate } : {}),
+          ...(sendInvite ? { invitedAt: now } : { inviteSkipped: true }),
           createdAt: now,
         };
 
@@ -988,6 +1040,7 @@ export function registerPortfolioRoutes(
             ? { fixedRenewalMonths }
             : {}),
           monthlyRent: rentAmount,
+          ...(endReminderDate ? { endReminderDate } : {}),
           deposit,
           ...(indexation ? { indexation } : {}),
           ...(termsAndConditions ? { termsAndConditions } : {}),
@@ -1079,29 +1132,32 @@ export function registerPortfolioRoutes(
               externalUserId: tenantUid,
               category: "propertyActivity",
               title: "New lease to review",
-              message: `${ownerName} sent you a lease for ${propertyLabel}. Open Olio to approve or decline it.`,
+              message: `${ownerName} sent you a lease for ${propertyLabel}. Open Nuleeo to approve or decline it.`,
               url: "https://app.oliowallet.com/tenant/agreements",
             });
           }
 
           // Transactional email reaches both cases: existing tenants
-          // get it as a second channel; new emails (no Olio account
+          // get it as a second channel; new emails (no Nuleeo account
           // yet) get it as the ONLY channel, with copy that points
           // them at signup. No credentialed link is included — the
           // recipient self-serves at app.oliowallet.com and /api/me
           // auto-links the pending tenancy by email match. Best-
           // effort: Resend hiccups don't break the agreement write.
-          await sendTenantAgreementInviteEmail({
-            email: tenantEmail,
-            ownerName,
-            propertyLabel,
-            hasAccount: !!tenantUid,
-          }).catch((err) => {
-            logError("agreement.invite-email-failed", err, {
-              tenantEmail,
-              propertyId,
+          // Add asset lets the owner opt out (sendInvite:false) and invite
+          // the tenant later from Tenants.
+          if (sendInvite)
+            await sendTenantAgreementInviteEmail({
+              email: tenantEmail,
+              ownerName,
+              propertyLabel,
+              hasAccount: !!tenantUid,
+            }).catch((err) => {
+              logError("agreement.invite-email-failed", err, {
+                tenantEmail,
+                propertyId,
+              });
             });
-          });
         }
 
         // No inviteLink in response — see security comment above. The
@@ -1266,8 +1322,8 @@ export function registerPortfolioRoutes(
               category: rentRaised ? "rentIncrease" : "propertyActivity",
               title: rentRaised ? "Your rent has changed" : "Your lease was updated",
               message: rentRaised
-                ? `Your landlord set your monthly rent to ${rentStr}. Open Olio to review.`
-                : "Your landlord updated your lease terms. Open Olio to review the details.",
+                ? `Your landlord set your monthly rent to ${rentStr}. Open Nuleeo to review.`
+                : "Your landlord updated your lease terms. Open Nuleeo to review the details.",
               url: "https://app.oliowallet.com/tenant",
             });
           }
@@ -1437,7 +1493,8 @@ export function registerPortfolioRoutes(
               externalUserId: tenancy.userId,
               category: "documents",
               title: "Signed lease available",
-              message: "Your landlord uploaded the signed lease. Open Olio to view or download it.",
+              message:
+                "Your landlord uploaded the signed lease. Open Nuleeo to view or download it.",
               url: "https://app.oliowallet.com/tenant/agreements",
             });
           }
@@ -1650,6 +1707,107 @@ export function registerPortfolioRoutes(
       res.json(updated);
     } catch (err: unknown) {
       res.status(500).json({ error: errMsg(err, "Failed to end tenancy") });
+    }
+  });
+
+  // Shared loader for the owner-self tenancy actions below (remind / invite).
+  // Same posture as end/settle: only the owning user may act, never a granted
+  // contact reading the portfolio.
+  const ownerName = (req: Parameters<RequestHandler>[0]) =>
+    [req.user!.profile?.firstName ?? "", req.user!.profile?.lastName ?? ""].join(" ").trim() ||
+    req.user!.email ||
+    "Your landlord";
+  async function loadOwnTenancy(uid: string, tenancyId: string) {
+    const ref = db().collection(COL.tenants).doc(tenancyId);
+    const snap = await ref.get();
+    if (!snap.exists) return { ok: false as const, status: 404, error: "Tenant not found" };
+    const tenancy = snap.data() as Tenant;
+    if (tenancy.ownerId !== uid)
+      return { ok: false as const, status: 403, error: "Not your tenant" };
+    const propSnap = await db().collection(COL.properties).doc(tenancy.propertyId).get();
+    const property = propSnap.exists ? (propSnap.data() as Property) : undefined;
+    const propertyLabel = property?.name || property?.address || "your rental";
+    return { ok: true as const, ref, tenancy, propertyLabel };
+  }
+  const REMINDER_COOLDOWN_MS = 60 * 60 * 1000;
+
+  // POST /api/owner/tenants/:id/remind — owner nudges a tenant about rent.
+  // Logged-in tenants get an in-app push; tenants who haven't signed up yet get
+  // an email. One reminder per tenancy per hour.
+  app.post("/api/owner/tenants/:id/remind", requireAuth, async (req, res) => {
+    try {
+      const loaded = await loadOwnTenancy(req.user!.uid, reqStr(req.params.id));
+      if (!loaded.ok) return res.status(loaded.status).json({ error: loaded.error });
+      const { ref, tenancy, propertyLabel } = loaded;
+      if (
+        tenancy.status !== "active" &&
+        tenancy.status !== "pending" &&
+        tenancy.status !== "invited"
+      ) {
+        return res.status(409).json({ error: "This tenancy has ended." });
+      }
+      if (
+        tenancy.lastReminderAt &&
+        Date.now() - Date.parse(tenancy.lastReminderAt) < REMINDER_COOLDOWN_MS
+      ) {
+        return res
+          .status(429)
+          .json({ error: "A reminder was sent less than an hour ago. Try again later." });
+      }
+      const name = ownerName(req);
+      let channel: "in_app" | "email";
+      if (tenancy.userId) {
+        channel = "in_app";
+        await notifyUser({
+          externalUserId: tenancy.userId,
+          category: "propertyActivity",
+          title: "Rent reminder",
+          message: `${name} sent a reminder about rent of €${Math.round(tenancy.rentAmount).toLocaleString("en-GB")} for ${propertyLabel}.`,
+          url: "https://app.oliowallet.com/tenant",
+        });
+      } else {
+        channel = "email";
+        await sendTenantRentReminderEmail({
+          email: tenancy.email,
+          ownerName: name,
+          propertyLabel,
+          amount: tenancy.rentAmount,
+          dueDate: tenancy.nextPayment ?? null,
+        });
+      }
+      await ref.update({ lastReminderAt: new Date().toISOString() });
+      res.json({ sent: true, channel });
+    } catch (err: unknown) {
+      res.status(500).json({ error: errMsg(err, "Failed to send reminder") });
+    }
+  });
+
+  // POST /api/owner/tenants/:id/invite — (re)send the tenant-portal invite to a
+  // tenant who hasn't signed up yet. Same no-credential email as lease creation.
+  app.post("/api/owner/tenants/:id/invite", requireAuth, async (req, res) => {
+    try {
+      const loaded = await loadOwnTenancy(req.user!.uid, reqStr(req.params.id));
+      if (!loaded.ok) return res.status(loaded.status).json({ error: loaded.error });
+      const { ref, tenancy, propertyLabel } = loaded;
+      if (tenancy.userId) {
+        return res.status(409).json({ error: "This tenant already has an account." });
+      }
+      if (tenancy.invitedAt && Date.now() - Date.parse(tenancy.invitedAt) < 5 * 60 * 1000) {
+        return res
+          .status(429)
+          .json({ error: "An invite was just sent. Try again in a few minutes." });
+      }
+      await sendTenantAgreementInviteEmail({
+        email: tenancy.email,
+        ownerName: ownerName(req),
+        propertyLabel,
+        hasAccount: false,
+      });
+      const invitedAt = new Date().toISOString();
+      await ref.update({ invitedAt, inviteSkipped: false });
+      res.json({ sent: true, invitedAt });
+    } catch (err: unknown) {
+      res.status(500).json({ error: errMsg(err, "Failed to send invite") });
     }
   });
 

@@ -57,7 +57,7 @@ export function WorkspaceSwitcher({ className }: { className?: string }) {
             type="button"
             aria-label={`Workspace: ${activeWorkspace.name}. Switch workspace`}
             className={cn(
-              "mb-3 flex w-full items-center gap-2.5 rounded-2xl bg-[#1C2325] px-3 py-2 text-left transition-colors hover:bg-[#2A3134] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A78C68]",
+              "mb-3 flex w-full items-center gap-2.5 rounded-2xl bg-white/[0.06] px-3 py-2 text-left transition-colors hover:bg-white/[0.1] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A78C68]",
               className,
             )}
           >

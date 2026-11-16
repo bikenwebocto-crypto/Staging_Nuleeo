@@ -1,4 +1,4 @@
-// Ask Olio data layer. Two-tier design to keep per-request token spend
+// Ask Nuleeo data layer. Two-tier design to keep per-request token spend
 // proportional to the question, not to portfolio size:
 //
 //   1. buildAskOlioSnapshot — a SMALL always-included snapshot that

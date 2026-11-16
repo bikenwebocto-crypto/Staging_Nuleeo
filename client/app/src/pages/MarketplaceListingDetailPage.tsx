@@ -228,7 +228,7 @@ export default function MarketplaceListingDetailPage() {
       >
         {submitted ? (
           <p className="text-sm text-muted-foreground">
-            Your interest has been sent to the Olio team. We'll reach out by email with next steps
+            Your interest has been sent to the Nuleeo team. We'll reach out by email with next steps
             for this property.
           </p>
         ) : (

@@ -65,7 +65,7 @@ export function InvoiceModal({ isOpen, onClose, transaction }: InvoiceModalProps
           </div>
           <div className="text-right">
             <div className="font-semibold text-foreground mb-2">From:</div>
-            <div className="text-foreground font-medium">Olio Platform Ltd.</div>
+            <div className="text-foreground font-medium">Nuleeo Platform Ltd.</div>
             <div className="text-muted-foreground">123 Tech Hub Drive</div>
             <div className="text-muted-foreground">Limassol, 4001, Cyprus</div>
           </div>
@@ -131,14 +131,14 @@ export function InvoiceModal({ isOpen, onClose, transaction }: InvoiceModalProps
                 Connect application fee — surface the cut on the invoice. */}
             {transaction.kind === "rent" && transaction.platformFee != null && (
               <div className="text-xs text-muted-foreground text-right mt-2">
-                Includes {formatCurrency(transaction.platformFee)} Olio platform fee
+                Includes {formatCurrency(transaction.platformFee)} Nuleeo platform fee
               </div>
             )}
           </div>
         </div>
 
         <div className="mt-16 pt-8 border-t border-border text-center text-muted-foreground text-xs">
-          <p>Thank you for using Olio Property Management.</p>
+          <p>Thank you for using Nuleeo Property Management.</p>
           <p className="mt-1">For any inquiries, please contact support@oliowallet.com</p>
         </div>
       </div>

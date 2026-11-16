@@ -49,7 +49,7 @@ export function UserLayout({
         />
         {showMobileHeader && <MobileHeader />}
 
-        <ResponsiveDrawer open={isAskOlioOpen} onOpenChange={setIsAskOlioOpen} title="Ask Olio">
+        <ResponsiveDrawer open={isAskOlioOpen} onOpenChange={setIsAskOlioOpen} title="Ask Nuleeo">
           <AskOlioContent />
         </ResponsiveDrawer>
 

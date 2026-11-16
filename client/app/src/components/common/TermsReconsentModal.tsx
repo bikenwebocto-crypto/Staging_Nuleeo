@@ -101,7 +101,7 @@ export function TermsReconsentModal() {
             >
               Privacy Policy
             </a>
-            . Please review and accept to continue using Olio.
+            . Please review and accept to continue using Nuleeo.
           </DialogDescription>
         </DialogHeader>
 

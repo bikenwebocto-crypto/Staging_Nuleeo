@@ -218,8 +218,8 @@ export default function AdminInvestmentLeadsPage() {
   const mailtoFor = (lead: UnifiedLead) => {
     const subject =
       lead.kind === "marketplace"
-        ? `Olio — ${lead.listingTitle}`
-        : `Olio — Investment suggestions for ${lead.location}`;
+        ? `Nuleeo — ${lead.listingTitle}`
+        : `Nuleeo — Investment suggestions for ${lead.location}`;
     return `mailto:${lead.userEmail}?subject=${encodeURIComponent(subject)}`;
   };
 

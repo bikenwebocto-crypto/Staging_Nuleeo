@@ -83,7 +83,7 @@ export function AskOlioFloating() {
                   <div className="bg-foreground text-background p-1.5 rounded-lg">
                     <Sparkles size={16} />
                   </div>
-                  Ask Olio
+                  Ask Nuleeo
                 </h2>
                 <button
                   onClick={() => setIsOpen(false)}
@@ -161,8 +161,8 @@ export function AskOlioFloating() {
                     type="text"
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
-                    aria-label="Ask Olio"
-                    placeholder="Ask Olio..."
+                    aria-label="Ask Nuleeo"
+                    placeholder="Ask Nuleeo..."
                     className="flex-1 bg-background border-none rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/10 transition font-medium"
                     autoFocus={isOpen}
                   />
@@ -182,7 +182,7 @@ export function AskOlioFloating() {
 
         <button
           onClick={() => setIsOpen(!isOpen)}
-          aria-label={isOpen ? "Close Ask Olio" : "Open Ask Olio"}
+          aria-label={isOpen ? "Close Ask Nuleeo" : "Open Ask Nuleeo"}
           className={`w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 ${
             isOpen
               ? "bg-secondary text-foreground hover:bg-secondary rotate-90"

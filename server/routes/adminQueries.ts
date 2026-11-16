@@ -476,7 +476,7 @@ export function registerAdminQueriesRoutes(
         const activeSubscriptions =
           range === "all" ? paidUids.size : activeUsers.filter((u) => paidUids.has(u.id)).length;
 
-        // Platform MRR/ARR = OWNER SUBSCRIPTION revenue paid to Olio, NOT the
+        // Platform MRR/ARR = OWNER SUBSCRIPTION revenue paid to Nuleeo, NOT the
         // sum of contracted tenant rent. Tenant rent is GMV that flows to
         // owners — it is not platform revenue. Value each active subscriber at
         // their plan's price (range === "all" → all subscribers; a windowed

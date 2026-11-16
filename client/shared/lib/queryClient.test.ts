@@ -15,13 +15,13 @@ describe("parseApiError", () => {
 
   it("strips the leading status-code prefix added by throwIfResNotOk", () => {
     // apiRequest wraps non-2xx as `${status}: ${body}` — peel that.
-    const err = new Error("404: No Olio account found for that email");
-    expect(parseApiError(err)).toBe("No Olio account found for that email");
+    const err = new Error("404: No Nuleeo account found for that email");
+    expect(parseApiError(err)).toBe("No Nuleeo account found for that email");
   });
 
   it("unwraps a JSON body's `error` field after stripping the status", () => {
-    const err = new Error('404: {"error":"No Olio account found"}');
-    expect(parseApiError(err)).toBe("No Olio account found");
+    const err = new Error('404: {"error":"No Nuleeo account found"}');
+    expect(parseApiError(err)).toBe("No Nuleeo account found");
   });
 
   it("falls back to the JSON body's `message` field when `error` is absent", () => {

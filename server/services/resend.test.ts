@@ -78,7 +78,7 @@ beforeEach(() => {
   setCalls.length = 0;
   setShouldRejectOnce = false;
   process.env.RESEND_API_KEY = "re_test_key";
-  process.env.RESEND_FROM = "Olio <noreply@oliowallet.com>";
+  process.env.RESEND_FROM = "Nuleeo <noreply@oliowallet.com>";
 });
 
 afterEach(() => {

@@ -475,7 +475,7 @@ async function onAccountUpdated(account: StripeAccount) {
       await notifyStaff({
         title: "🚨 Platform payments disabled",
         message:
-          "Stripe disabled charges on the Olio platform account — all rent checkout is failing. Check Stripe now.",
+          "Stripe disabled charges on the Nuleeo platform account — all rent checkout is failing. Check Stripe now.",
         url: "https://dashboard.stripe.com/account",
       });
     }
@@ -764,7 +764,7 @@ async function onInvoicePaymentFailed(invoice: StripeInvoice): Promise<void> {
       category: "propertyActivity",
       title: "Action needed: subscription payment failed",
       message:
-        "We couldn't charge your Olio plan. Update your payment method to keep your plan — otherwise it will revert to Starter.",
+        "We couldn't charge your Nuleeo plan. Update your payment method to keep your plan — otherwise it will revert to Starter.",
       url: "https://app.oliowallet.com/profile",
     });
   }

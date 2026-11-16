@@ -30,6 +30,7 @@ import type {
   TxPaymentMethod,
   Unit,
 } from "@shared/firestore-schema";
+import type { ProfileSection, PropertyProfile } from "@shared/propertyProfile";
 import { useActivePortfolio, withOwnerScope } from "@/lib/activePortfolio";
 
 export interface OwnerProperty {
@@ -45,6 +46,11 @@ export interface OwnerProperty {
   acquisitionPrice: number;
   createdAt: string;
   propertyType?: PropertyType;
+  // Optional project grouping (Project.id) chosen on Add asset / Portfolio.
+  projectId?: string;
+  // Set on a unit created under a building; units are full Property docs.
+  parentPropertyId?: string;
+  unitLabel?: string;
   buildingName?: string;
   floor?: string;
   sqm?: string;
@@ -67,6 +73,13 @@ export interface OwnerProperty {
   ownershipType?: OwnershipType;
   companyName?: string;
   titleDeedsStatus?: TitleDeedsStatus;
+  entityId?: string;
+  bedrooms?: number;
+  baths?: number;
+  status?: "active" | "inactive";
+  profile?: PropertyProfile;
+  profileCompletion?: number;
+  profileSteps?: Partial<Record<ProfileSection, boolean>>;
 
   unitCount: number;
   rentAmount: number;
@@ -106,6 +119,10 @@ export interface OwnerAgreement {
   agreementValue: number;
   startDate: string;
   endDate: string;
+  // When the lease actually closed (null while still open). Terminated leases
+  // end early, so occupancy history prefers these over endDate.
+  terminatedAt: string | null;
+  expiredAt: string | null;
   signedAt: string | null;
   // The owner-uploaded signed/physical lease PDF. documentUrl is a fresh,
   // short-lived signed URL (null when nothing is attached); the rest is display
@@ -148,6 +165,40 @@ export interface OwnerTenant {
   unitId: string;
   unitLabel: string | null;
   createdAt: string;
+  // Tenants & leases page extras.
+  portalStatus?: "active" | "invited" | "not_invited";
+  lastLoginAt?: string | null;
+  invitedAt?: string | null;
+  agreementId?: string | null;
+  agreementStatus?: string | null;
+  leaseStart?: string | null;
+  leaseEnd?: string | null;
+  propertyName?: string | null;
+  propertyType?: PropertyType | null;
+  parentPropertyId?: string | null;
+  projectId?: string | null;
+  ownershipType?: "individual" | "company" | null;
+  companyName?: string | null;
+}
+
+// Owner nudges a tenant about rent (in-app if they've signed up, else email).
+export function useRemindTenant() {
+  const qc = useQueryClient();
+  return useMutation<{ sent: boolean; channel: "in_app" | "email" }, Error, string>({
+    mutationFn: async (tenancyId) =>
+      (await apiRequest("POST", `/api/owner/tenants/${tenancyId}/remind`)).json(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/owner/tenants"] }),
+  });
+}
+
+// Owner (re)sends the tenant-portal invite email.
+export function useInviteTenant() {
+  const qc = useQueryClient();
+  return useMutation<{ sent: boolean; invitedAt: string }, Error, string>({
+    mutationFn: async (tenancyId) =>
+      (await apiRequest("POST", `/api/owner/tenants/${tenancyId}/invite`)).json(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/owner/tenants"] }),
+  });
 }
 
 export interface OwnerSummary {
@@ -531,6 +582,12 @@ export function useUpdateOwnerTransaction() {
 // invites since there's no transactional email provider live yet.
 export interface CreateAgreementInput {
   tenantEmail: string;
+  tenantName?: string;
+  tenantPhone?: string;
+  // false = don't email the portal invite now (owner invites later).
+  sendInvite?: boolean;
+  // YYYY-MM-DD; when to remind the owner the lease is ending.
+  endReminderDate?: string;
   propertyId: string;
   rentAmount: number;
   deposit: number;

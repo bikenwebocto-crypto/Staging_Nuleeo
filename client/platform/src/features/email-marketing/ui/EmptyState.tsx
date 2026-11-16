@@ -12,7 +12,7 @@ export function EmptyState({ onCreate }: EmptyStateProps) {
       </div>
       <h3 className="text-sm font-semibold text-foreground mb-1">No campaigns yet</h3>
       <p className="text-xs text-muted-foreground mb-5">
-        Compose your first email to send to owners, tenants, or everyone on Olio.
+        Compose your first email to send to owners, tenants, or everyone on Nuleeo.
       </p>
       <button
         onClick={onCreate}

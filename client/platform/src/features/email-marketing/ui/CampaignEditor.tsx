@@ -39,7 +39,7 @@ export interface CampaignEditorProps {
 
 // Pre-filled into the signature field for new campaigns. Fully editable (and
 // clearable) — it's a starting point, not a locked footer.
-const DEFAULT_SIGNATURE = "Best regards,\nThe Olio Team";
+const DEFAULT_SIGNATURE = "Best regards,\nThe Nuleeo Team";
 
 // Merge tokens offered as one-click chips above the body. Clicking one inserts
 // it at the cursor of whichever field (subject or body) was last focused.
@@ -474,7 +474,7 @@ export function CampaignEditor({ campaign, loading, onBack, onChanged }: Campaig
                   onChange={(e) => setSignature(e.target.value)}
                   rows={3}
                   className="w-full px-4 py-3 rounded-lg border border-border bg-muted text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition resize-none disabled:opacity-60"
-                  placeholder={"Best regards,\nThe Olio Team"}
+                  placeholder={"Best regards,\nThe Nuleeo Team"}
                 />
               </div>
 
@@ -492,7 +492,7 @@ export function CampaignEditor({ campaign, loading, onBack, onChanged }: Campaig
                   onChange={(e) => setFooterText(e.target.value)}
                   rows={2}
                   className="w-full px-4 py-3 rounded-lg border border-border bg-muted text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition resize-none disabled:opacity-60"
-                  placeholder="e.g. Olio Wallet Ltd · Nicosia, Cyprus"
+                  placeholder="e.g. Nuleeo Wallet Ltd · Nicosia, Cyprus"
                 />
                 <p className="mt-1.5 text-[11px] text-muted-foreground">
                   Shown above the unsubscribe line. Merge tags like{" "}

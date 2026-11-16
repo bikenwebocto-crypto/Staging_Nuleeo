@@ -410,7 +410,7 @@ export default function OwnerSettingsPage() {
                   key: "messages" as const,
                   icon: MessageSquare,
                   title: "Messages",
-                  desc: "New messages from your tenants and Olio Support",
+                  desc: "New messages from your tenants and Nuleeo Support",
                 },
                 {
                   key: "maintenance" as const,

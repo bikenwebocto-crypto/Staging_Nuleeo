@@ -135,7 +135,7 @@ export default function AdminSettingsPage() {
       title: nextEnabled ? "Maintenance mode enabled" : "Maintenance mode disabled",
       description: nextEnabled
         ? "Non-admin users will see the maintenance screen."
-        : "All users can access Olio again.",
+        : "All users can access Nuleeo again.",
     });
   }
   async function handleMaintenanceConfirm() {
@@ -247,7 +247,7 @@ export default function AdminSettingsPage() {
                     <div className="text-sm font-medium text-foreground">Maintenance Mode</div>
                     <div className="text-xs text-muted-foreground mt-0.5">
                       {maintenanceMode
-                        ? "Olio is currently locked — non-admin users see the maintenance screen."
+                        ? "Nuleeo is currently locked — non-admin users see the maintenance screen."
                         : "Temporarily disable access for all users"}
                     </div>
                   </div>
@@ -604,7 +604,7 @@ function IntegrationsTab({ onNavigate }: { onNavigate: (path: string) => void })
             </p>
             <pre className="text-[11px] font-mono bg-card border border-border rounded p-2 overflow-x-auto leading-relaxed">
               {`firebase functions:secrets:set RESEND_API_KEY --project olio-wallet
-firebase functions:secrets:set RESEND_FROM --project olio-wallet           # e.g. "Olio <noreply@oliowallet.com>"
+firebase functions:secrets:set RESEND_FROM --project olio-wallet           # e.g. "Nuleeo <noreply@oliowallet.com>"
 firebase functions:secrets:set RESEND_WEBHOOK_SECRET --project olio-wallet # whsec_... from Resend dashboard
 firebase functions:secrets:set UNSUBSCRIBE_SECRET --project olio-wallet    # openssl rand -hex 32`}
             </pre>

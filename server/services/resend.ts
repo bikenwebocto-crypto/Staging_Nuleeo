@@ -3,7 +3,7 @@
 //
 // Required secrets:
 //   RESEND_API_KEY        — re_xxxxx workspace API key
-//   RESEND_FROM           — verified sender, e.g. "Olio <noreply@oliowallet.com>"
+//   RESEND_FROM           — verified sender, e.g. "Nuleeo <noreply@oliowallet.com>"
 //   RESEND_WEBHOOK_SECRET — whsec_… secret for Svix-signed webhook verification
 //
 // Docs:

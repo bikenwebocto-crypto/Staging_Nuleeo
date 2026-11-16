@@ -1,8 +1,8 @@
-// Validates a client-supplied redirect URL against an allowlist of Olio
+// Validates a client-supplied redirect URL against an allowlist of Nuleeo
 // origins. Used wherever a user-supplied successUrl/cancelUrl/returnUrl
 // is handed to Stripe (or any third-party redirector) — without this, an
 // attacker could craft a Stripe Checkout link whose post-payment redirect
-// lands the victim at evil.com/phishing styled to look like an Olio
+// lands the victim at evil.com/phishing styled to look like an Nuleeo
 // confirmation page.
 //
 // Accepts:

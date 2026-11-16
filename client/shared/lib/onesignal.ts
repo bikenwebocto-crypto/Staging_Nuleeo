@@ -163,7 +163,7 @@ export function describePushUnavailable(reason: PushUnavailableReason): {
   switch (reason) {
     case "private-browsing":
       return {
-        message: "Private Browsing blocks push — open Olio in a normal Safari window to enable",
+        message: "Private Browsing blocks push — open Nuleeo in a normal Safari window to enable",
         badge: "PRIVATE",
       };
     case "setup-incomplete":

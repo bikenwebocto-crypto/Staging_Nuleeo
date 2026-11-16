@@ -156,7 +156,7 @@ export function registerNotificationRoutes(
 
       const result = await sendPush({
         externalUserId: authUser.uid,
-        title: "Reset your Olio password",
+        title: "Reset your Nuleeo password",
         message: "Tap to choose a new password for your account.",
         url: link,
       });
@@ -174,7 +174,7 @@ export function registerNotificationRoutes(
       });
     } catch (err: any) {
       if (err?.code === "auth/user-not-found") {
-        return res.status(404).json({ error: "No Olio account matches that user" });
+        return res.status(404).json({ error: "No Nuleeo account matches that user" });
       }
       const status = err instanceof PushError ? 502 : 500;
       res.status(status).json({ error: errMsg(err, "Failed to send password-reset push") });
@@ -232,8 +232,8 @@ function parseSendInput(raw: unknown): SendInput | { error: string } {
   if (!message) return { error: "message is required" };
   if (message.length > MAX_MESSAGE_LEN)
     return { error: `message exceeds ${MAX_MESSAGE_LEN} chars` };
-  // The broadcast click-through opens directly from a trusted, Olio-branded
-  // push to up to MAX_BROADCAST real users. Restrict it to an Olio host so a
+  // The broadcast click-through opens directly from a trusted, Nuleeo-branded
+  // push to up to MAX_BROADCAST real users. Restrict it to an Nuleeo host so a
   // compromised/rogue comm.email session can't turn the channel into a
   // phishing amplifier. (The password-reset endpoint mints its own Firebase
   // link and does NOT go through this parser, so it's unaffected.)
@@ -255,7 +255,7 @@ function parseSendInput(raw: unknown): SendInput | { error: string } {
   return { error: "audience.kind must be 'filter' or 'user'" };
 }
 
-// Broadcast click-through URLs must point at an Olio host (no open redirect /
+// Broadcast click-through URLs must point at an Nuleeo host (no open redirect /
 // phishing amplification). Rejects userinfo ("user@evil.com") tricks and any
 // non-https scheme.
 function isAllowedBroadcastUrl(raw: string): boolean {

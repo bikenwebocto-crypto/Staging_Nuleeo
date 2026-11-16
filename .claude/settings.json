@@ -14,7 +14,16 @@
       "PowerShell(npx vitest run shared/entityBackfill.test.ts server/services/userExport server/services/userDelete 2>&1)",
       "PowerShell(npx eslint client/app/src/components/owner/entity client/app/src/lib/entities.ts client/app/src/components/owner/dashboard/BusinessDashboard.tsx client/app/src/pages/owner/OwnerDashboard.tsx server/routes/entities.ts shared/entities.ts 2>&1)",
       "PowerShell(Remove-Item client/app/src/pages/owner/BusinessOverviewPage.tsx; \\(Get-Content client/app/src/App.tsx -Raw\\).Replace\\('BusinessOverviewPage = lazyRoute\\(\\(\\) => import\\(\"@/pages/owner/BusinessOverviewPage\"\\)','BusinessDetailPage = lazyRoute\\(\\(\\) => import\\(\"@/pages/owner/BusinessDetailPage\"\\)'\\).Replace\\('<BusinessOverviewPage />','<BusinessDetailPage />'\\) | Set-Content -NoNewline -Encoding utf8 client/app/src/App.tsx; Select-String -Path client/app/src/App.tsx -Pattern \"BusinessDetailPage|BusinessOverview\")",
-      "PowerShell(node -e \"const f='client/app/src/App.tsx';const fs=require\\('fs'\\);let s=fs.readFileSync\\(f,'utf8'\\);if\\(s.charCodeAt\\(0\\)===0xFEFF\\){fs.writeFileSync\\(f,s.slice\\(1\\)\\);console.log\\('BOM removed'\\)}else console.log\\('no BOM'\\)\")"
+      "PowerShell(node -e \"const f='client/app/src/App.tsx';const fs=require\\('fs'\\);let s=fs.readFileSync\\(f,'utf8'\\);if\\(s.charCodeAt\\(0\\)===0xFEFF\\){fs.writeFileSync\\(f,s.slice\\(1\\)\\);console.log\\('BOM removed'\\)}else console.log\\('no BOM'\\)\")",
+      "Bash(grep -n \"\\\\\"@ui/\\\\|\\\\\"@/\\\\|@shared\" client/app/tsconfig.json client/app/vite.config.ts)",
+      "Bash(grep -n \"const startDate = str\\(body.startDate\\);\\\\|          name: tenantEmail,\\\\|        if \\(!alreadyExisted\\) {\\\\|          await sendTenantAgreementInviteEmail\\({\\\\|          monthlyRent: rentAmount,\\\\|isoDate\\\\|const endDate\" server/routes/portfolio.ts)",
+      "Bash(npm run *)",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri http://localhost:5102/api/projects -Method POST -UseBasicParsing -ErrorAction Stop; $r.StatusCode } catch { $_.Exception.Response.StatusCode.value__ }; try { $r = Invoke-WebRequest -Uri http://localhost:5102/api/owner/properties -UseBasicParsing -ErrorAction Stop; $r.StatusCode } catch { $_.Exception.Response.StatusCode.value__ }; Get-NetTCPConnection -LocalPort 5102 -State Listen | ForEach-Object { Get-CimInstance Win32_Process -Filter \"ProcessId=$\\($_.OwningProcess\\)\" | Select-Object ProcessId, CreationDate, CommandLine })",
+      "PowerShell(npx vitest run client/app/src/components/owner/property/occupancy.test.ts server/routes/portfolio.test.ts 2>&1)",
+      "PowerShell(npx vitest run shared/structure.test.ts server/routes.integration.test.ts 2>&1)",
+      "PowerShell(node \"C:\\\\Users\\\\Admin\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\96b6c5033212e421\\\\21c83b00-77aa-483f-a31a-d7d8ca80a9c4\\\\scratchpad\\\\rebrand.mjs\" \"d:\\\\Webocto projects\\\\olio-fe-main\")",
+      "Bash(git -c core.autocrlf=false diff HEAD -- client/app/src/lib/ownerQueries.ts server/routes/portfolio.ts server/routes/properties.ts shared/firestore-schema.ts)",
+      "Bash(grep -v \"^\\\\s*[0-9]*:\\\\s*//\")"
     ]
   }
 }

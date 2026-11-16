@@ -20,17 +20,17 @@ export default function FAQPage() {
     {
       question: "Which plan should I choose?",
       answer:
-        "Olio has four tiers — Starter, Growth, Pro, and Business. Each unlocks more units, advanced analytics, and tenant-management features. Visit the pricing modal from your Profile to compare what's included at each tier.",
+        "Nuleeo has four tiers — Starter, Growth, Pro, and Business. Each unlocks more units, advanced analytics, and tenant-management features. Visit the pricing modal from your Profile to compare what's included at each tier.",
     },
     {
       question: "How do I upgrade my plan?",
       answer:
-        "Open your Profile drawer and tap UPGRADE. Olio uses Stripe Checkout, so you'll be back here as soon as payment confirms.",
+        "Open your Profile drawer and tap UPGRADE. Nuleeo uses Stripe Checkout, so you'll be back here as soon as payment confirms.",
     },
     {
       question: "Is my data secure?",
       answer:
-        "Yes. Olio is built on Firebase with industry-standard encryption in transit and at rest. Payments are processed by Stripe — we never see your card details.",
+        "Yes. Nuleeo is built on Firebase with industry-standard encryption in transit and at rest. Payments are processed by Stripe — we never see your card details.",
     },
     {
       question: "How do I invite a tenant?",

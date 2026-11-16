@@ -42,10 +42,10 @@ export const menuItems = [
   { icon: Building, label: "Properties", path: "/properties" },
   { icon: FileText, label: "Agreements", path: "/owner/agreements" },
   { icon: History, label: "Activity", path: "/owner/activity" },
-  { icon: BarChart3, label: "Olio Insights", path: "/insights" },
+  { icon: BarChart3, label: "Nuleeo Insights", path: "/insights" },
   { icon: Calculator, label: "Smart Calculator", path: "/calculator" },
   { icon: Handshake, label: "Network", path: "/network" },
-  { icon: MessageCircle, label: "Ask Olio", path: "/ask-olio" },
+  { icon: MessageCircle, label: "Ask Nuleeo", path: "/ask-olio" },
   { icon: Settings, label: "Settings", path: "/owner/settings" },
 ];
 

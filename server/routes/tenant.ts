@@ -980,10 +980,10 @@ export function registerTenantRoutes(app: Express): void {
       // Open-redirect guard: Stripe Checkout will redirect the user to
       // these URLs after payment. Without an allowlist an attacker
       // could craft a checkout link that lands the victim at evil.com/
-      // phishing post-payment, styled like an Olio confirmation.
+      // phishing post-payment, styled like an Nuleeo confirmation.
       if (!isSafeRedirectUrl(successUrl) || !isSafeRedirectUrl(cancelUrl)) {
         return res.status(400).json({
-          error: "successUrl and cancelUrl must point at an Olio domain",
+          error: "successUrl and cancelUrl must point at an Nuleeo domain",
         });
       }
 
@@ -1083,7 +1083,7 @@ export function registerTenantRoutes(app: Express): void {
             // Direct charge: the session/charge is created ON the owner's
             // connected account (stripeAccount in the request options below),
             // so the OWNER is the merchant of record and bears chargeback
-            // liability. Olio's commission is pulled off the top via
+            // liability. Nuleeo's commission is pulled off the top via
             // application_fee_amount — NO transfer_data (that belongs to the
             // destination-charge model where the platform is liable).
             ...(fee.feeCents > 0

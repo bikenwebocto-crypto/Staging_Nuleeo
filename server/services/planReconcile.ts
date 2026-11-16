@@ -306,7 +306,7 @@ async function suspendRemainingAgreements(
         category: "propertyActivity",
         title: "Rent collection paused",
         message:
-          "Your landlord's Olio plan can no longer collect rent through the app. Your tenancy is paused — they have 30 days to restore it before it ends.",
+          "Your landlord's Nuleeo plan can no longer collect rent through the app. Your tenancy is paused — they have 30 days to restore it before it ends.",
         url: "https://app.oliowallet.com/tenant",
       });
       tenantsNotified += 1;
@@ -419,7 +419,7 @@ export async function reconcileAfterPlanChange(
       );
     }
     if (rentCollectLost) {
-      parts.push("rent collection through Olio has been paused");
+      parts.push("rent collection through Nuleeo has been paused");
     }
     try {
       await notifyUser({

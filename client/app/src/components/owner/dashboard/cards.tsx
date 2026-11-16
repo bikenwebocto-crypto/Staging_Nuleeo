@@ -473,12 +473,12 @@ export function ByOwnerCard({ model, loading }: { model: DashboardModel; loading
           subtitle="Ownership distribution"
           tone={PALETTE.lime}
         />
-        <Link href="/properties">
+        <Link href="/portfolios">
           <span
             className="inline-flex shrink-0 cursor-pointer items-center gap-1 text-[11px] font-semibold transition-colors hover:text-[#F4F4F2]"
             style={{ color: PALETTE.muted }}
           >
-            View structure <ChevronRight size={12} />
+            View portfolios <ChevronRight size={12} />
           </span>
         </Link>
       </div>

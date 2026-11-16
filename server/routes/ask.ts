@@ -1,4 +1,4 @@
-// Ask Olio — chat completion proxy with tool calling. Two-tier shape:
+// Ask Nuleeo — chat completion proxy with tool calling. Two-tier shape:
 //
 //   1. A lightweight portfolio snapshot is injected as a system message
 //      so simple questions ("how many properties?") answer in one

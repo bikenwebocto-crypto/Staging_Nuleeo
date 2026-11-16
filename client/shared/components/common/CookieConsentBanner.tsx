@@ -35,8 +35,8 @@ export function CookieConsentBanner({
     >
       <div className="mx-auto flex max-w-3xl flex-col gap-3 rounded-2xl border border-border bg-card p-4 text-card-foreground shadow-lg sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <p className="text-sm leading-relaxed text-muted-foreground">
-          We use essential cookies to run Olio and to remember preferences like your theme. We don't
-          use advertising or third-party analytics cookies. See our{" "}
+          We use essential cookies to run Nuleeo and to remember preferences like your theme. We
+          don't use advertising or third-party analytics cookies. See our{" "}
           <a
             href={cookiePolicyHref}
             className="font-medium text-foreground underline underline-offset-2"

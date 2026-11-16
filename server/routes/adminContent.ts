@@ -501,7 +501,7 @@ export function registerAdminContentRoutes(
           await notifyUser({
             externalUserId: ticket.userId,
             category: "messages",
-            title: "New message from Olio Support",
+            title: "New message from Nuleeo Support",
             message: preview,
             url: "https://app.oliowallet.com/",
           });

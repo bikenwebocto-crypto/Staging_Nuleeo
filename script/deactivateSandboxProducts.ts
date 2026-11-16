@@ -23,7 +23,7 @@
 import "dotenv/config";
 import { db } from "../server/firebase";
 
-const SANDBOX_FP = "H79Nk7s7Fo"; // acct_1TPNViH79Nk7s7Fo (Olio Wallet sandbox)
+const SANDBOX_FP = "H79Nk7s7Fo"; // acct_1TPNViH79Nk7s7Fo (Nuleeo Wallet sandbox)
 const COMMIT = process.argv.includes("--commit");
 
 async function main() {

@@ -20,11 +20,11 @@ const SECTIONS: Section[] = [
   {
     key: "overview",
     label: "Overview",
-    blurb: "How the three Olio subdomains fit together and where each persona lives.",
+    blurb: "How the three Nuleeo subdomains fit together and where each persona lives.",
     groups: [
       {
         title: "Three subdomains",
-        body: "Olio is split across three apps that share one Firebase backend.",
+        body: "Nuleeo is split across three apps that share one Firebase backend.",
         bullets: [
           "oliowallet.com — public landing site. Marketing pages, pricing, sign-up entry point.",
           "app.oliowallet.com — the user app. Owners and tenants live here. Owners can also switch into a tenant view they belong to.",
@@ -46,7 +46,7 @@ const SECTIONS: Section[] = [
         body: "Four owner tiers. The internal keys (basic / advance / pro / business) are stable and never editable; the labels, descriptions, and unit caps are editable per-plan in Settings → Owner Plans (which also sets each plan's rent commission). Prices are FIXED in code and shown read-only — admins cannot change them. A user's current plan is read from the Stripe-derived stripeRole custom claim, never from the User document — no claim means the free Starter tier. See the Plans & Billing section for the full lifecycle.",
         bullets: [
           "Starter (basic) — free default tier. Default cap 2 properties; core features.",
-          "Growth (advance) — paid Stripe product. Default cap 5; adds rent, documents, contracts, briefings, Ask Olio.",
+          "Growth (advance) — paid Stripe product. Default cap 5; adds rent, documents, contracts, briefings, Ask Nuleeo.",
           "Pro (pro) — paid Stripe product. Default cap 20; adds advanced analytics.",
           "Business (business) — sales-led; NO Stripe product. Default unlimited cap; granted as a complimentary plan, never bought self-serve.",
           "Pricing is yearly only and FIXED in code — not admin-editable (Starter free, Growth €69/yr, Pro €290/yr, Business custom quote). Per-plan commission lives in config/platformFees and defaults to 0% until an admin sets it.",
@@ -58,7 +58,7 @@ const SECTIONS: Section[] = [
     key: "plans-billing",
     label: "Plans & Billing",
     blurb:
-      "How the four owner plans work end-to-end: where they are defined, how a user's plan is decided, and the real activate / cancel / upgrade / downgrade / comp-grant mechanics. Subscriptions are owned by the Firebase 'Run Payments with Stripe' extension, not by Olio's own API.",
+      "How the four owner plans work end-to-end: where they are defined, how a user's plan is decided, and the real activate / cancel / upgrade / downgrade / comp-grant mechanics. Subscriptions are owned by the Firebase 'Run Payments with Stripe' extension, not by Nuleeo's own API.",
     groups: [
       {
         title: "The four plans",
@@ -86,44 +86,44 @@ const SECTIONS: Section[] = [
       },
       {
         title: "Activate (first-time subscribe)",
-        body: "First-time activation does NOT go through any Olio API endpoint — there is no /api/checkout/session. It uses the Firebase Stripe extension's Firestore handshake: the app writes a checkout-session request document, the extension fills in a Stripe Checkout URL, and the app redirects there. Only a move FROM Starter to a paid tier (Growth or Pro) goes through Checkout.",
+        body: "First-time activation does NOT go through any Nuleeo API endpoint — there is no /api/checkout/session. It uses the Firebase Stripe extension's Firestore handshake: the app writes a checkout-session request document, the extension fills in a Stripe Checkout URL, and the app redirects there. Only a move FROM Starter to a paid tier (Growth or Pro) goes through Checkout.",
         flow: [
           "Owner picks a paid tier in the Pricing modal (opened from the profile drawer's Upgrade button or a paywall). Only the portfolio owner can do this; granted contacts see it read-only.",
           "The app writes a document to customers/{uid}/checkout_sessions (price, success and cancel URLs, promo codes allowed) and watches it for up to 30 seconds.",
           "The Firebase Stripe Payments extension creates the Stripe Checkout Session and writes a url back onto that document; the app redirects the owner to it.",
           "The owner completes payment on Stripe's hosted page.",
-          "The EXTENSION (via its own Stripe webhook) sets the stripeRole custom claim from the Stripe product's firebaseRole metadata (advance or pro). Olio's own /api/webhooks/stripe handler does NOT set this claim.",
+          "The EXTENSION (via its own Stripe webhook) sets the stripeRole custom claim from the Stripe product's firebaseRole metadata (advance or pro). Nuleeo's own /api/webhooks/stripe handler does NOT set this claim.",
           "The owner returns to ?checkout=success; CheckoutReturnHandler force-refreshes the Firebase ID token so the new plan appears immediately, then strips the query param so a reload doesn't re-trigger it.",
         ],
       },
       {
         title: "Cancel",
-        body: "Cancellation happens entirely in the Stripe-hosted Customer Portal — there is no Olio cancel endpoint. The app opens the portal via the extension's createPortalLink callable and the owner cancels there. Cancellation is NOT immediate.",
+        body: "Cancellation happens entirely in the Stripe-hosted Customer Portal — there is no Nuleeo cancel endpoint. The app opens the portal via the extension's createPortalLink callable and the owner cancels there. Cancellation is NOT immediate.",
         flow: [
           "Owner opens the Pricing modal and chooses to manage or cancel. Any existing paid subscriber is routed to the portal (including a downgrade back to Starter).",
           "The app calls the extension callable ext-firestore-stripe-payments-createPortalLink and redirects to the returned Stripe Customer Portal URL.",
           "The owner cancels in the portal. Stripe sets cancel_at_period_end — the subscription STAYS active (and the plan stays paid) until the paid period ends. Plans are annual, so this can be up to a year away.",
-          "At period end the extension removes or changes the stripeRole claim. usePlan() then sees no claim and falls back to basic (Starter) automatically — no Olio code resets the claim.",
+          "At period end the extension removes or changes the stripeRole claim. usePlan() then sees no claim and falls back to basic (Starter) automatically — no Nuleeo code resets the claim.",
           "Reactivation is possible before period end via the same Customer Portal, since the subscription is still active until that boundary.",
         ],
       },
       {
         title: "Upgrade (move up a tier)",
-        body: "Moving up while already on a paid plan also goes through the Stripe Customer Portal (not Checkout, and not any Olio route). Only a first subscription from free Starter uses Checkout. Proration and timing are configured in Stripe, not in Olio.",
+        body: "Moving up while already on a paid plan also goes through the Stripe Customer Portal (not Checkout, and not any Nuleeo route). Only a first subscription from free Starter uses Checkout. Proration and timing are configured in Stripe, not in Nuleeo.",
         flow: [
           "Owner picks the higher tier in the Pricing modal. From Starter (no paid sub) this is the Checkout path; already-paid owners go to the Customer Portal.",
-          "The subscription-item swap happens on Stripe's hosted surface; proration (e.g. charging the difference immediately) is whatever the Stripe dashboard is configured to do — there is no proration logic in Olio.",
+          "The subscription-item swap happens on Stripe's hosted surface; proration (e.g. charging the difference immediately) is whatever the Stripe dashboard is configured to do — there is no proration logic in Nuleeo.",
           "The extension updates the stripeRole claim to the new tier.",
-          "Upgrades take effect immediately once the claim flips — Olio adds no delay or cleanup on an upgrade (the downgrade reconcile explicitly does nothing on an upgrade or a lateral move). The owner force-refreshes their token on return, or picks up the change on the next token refresh.",
+          "Upgrades take effect immediately once the claim flips — Nuleeo adds no delay or cleanup on an upgrade (the downgrade reconcile explicitly does nothing on an upgrade or a lateral move). The owner force-refreshes their token on return, or picks up the change on the next token refresh.",
           "Upgrading to Business is the exception: it is sales-led (opens an email to support), not self-serve, and is granted as a complimentary plan.",
         ],
       },
       {
         title: "Downgrade (move down a tier)",
-        body: "Downgrading also runs through the Stripe Customer Portal. The important part is the SIDE EFFECTS Olio runs after a real tier drop — these are destructive, and they fire at the renewal / period boundary, not the moment the owner clicks downgrade.",
+        body: "Downgrading also runs through the Stripe Customer Portal. The important part is the SIDE EFFECTS Nuleeo runs after a real tier drop — these are destructive, and they fire at the renewal / period boundary, not the moment the owner clicks downgrade.",
         flow: [
           "Owner picks a lower tier (or Starter) in the Pricing modal → routed to the Stripe Customer Portal to make the change.",
-          "Because plans are annual, Stripe enacts the lower plan at renewal and then fires customer.subscription.updated; Olio's webhook reconcile acts only when the subscription's PRODUCT actually changed (a real tier drop), not on a plain cancel toggle.",
+          "Because plans are annual, Stripe enacts the lower plan at renewal and then fires customer.subscription.updated; Nuleeo's webhook reconcile acts only when the subscription's PRODUCT actually changed (a real tier drop), not on a plain cancel toggle.",
           "On a real drop, reconcileAfterPlanChange enforces the new unit cap by HARD-DELETING excess properties to fit (vacant first, newest-first, then occupied) — this cascades to units, documents, tenants, agreements, and storage photos. Over-cap data is deleted, not hidden.",
           "If the new lower plan loses the rent.collectStripe privilege, ALL active agreements for the owner are terminated and those tenancies expired, with push notifications to the tenants and owner — independent of any property deletion.",
           "Going forward, the new cap is enforced when ADDING properties: POST /api/properties returns 402 if the owner is at or over cap (re-checked inside a transaction to prevent races). Property transfers re-check the recipient's cap too.",
@@ -191,7 +191,7 @@ const SECTIONS: Section[] = [
       },
       {
         title: "Partners (/admin/partners)",
-        body: "Business partners (contractors, service providers, insurers) Olio surfaces inside the owner Network page.",
+        body: "Business partners (contractors, service providers, insurers) Nuleeo surfaces inside the owner Network page.",
         bullets: [
           "Status — Active / Paused.",
           "+ New Partner (sidebar) — name, type, contact, email, phone.",
@@ -243,7 +243,7 @@ const SECTIONS: Section[] = [
           "Compose — title, body, deep-link path, audience segment.",
           "Owner filters — plan, portfolio count, property count, units rented, people in network.",
           "Send Test — sends only to one target email so you can preview without spamming users.",
-          "Branded icon — uses the Olio symbol.",
+          "Branded icon — uses the Nuleeo symbol.",
         ],
       },
       {
@@ -297,7 +297,7 @@ const SECTIONS: Section[] = [
       },
       {
         title: "Documentation",
-        body: "This tab. Read-only reference to every page, button, form, and flow in Olio. Visible to every admin.",
+        body: "This tab. Read-only reference to every page, button, form, and flow in Nuleeo. Visible to every admin.",
       },
     ],
   },
@@ -348,7 +348,7 @@ const SECTIONS: Section[] = [
         body: "Lease agreements the owner has created or co-signed. Create New Agreement → pick property, unit, tenant, terms, rent, sign and send to tenant.",
       },
       {
-        title: "Olio Insights (/insights)",
+        title: "Nuleeo Insights (/insights)",
         body: "Portfolio analytics — occupancy trend, rent collected vs. expected, cash flow, expenses. Server-gated by owner plan (Pro / Business get the full export). Formerly Analytics; /analytics redirects here.",
       },
       {
@@ -410,7 +410,7 @@ const SECTIONS: Section[] = [
         body: "Public listings — properties, rentals, services. Filter by type, price, location.",
       },
       {
-        title: "Ask Olio (/ask)",
+        title: "Ask Nuleeo (/ask)",
         body: "AI assistant. Conversational chat for property / lease / market questions. Server-gated by owner plan.",
       },
       {
@@ -513,7 +513,7 @@ const SECTIONS: Section[] = [
           "Owner clicks Upgrade in the profile drawer (or a paywall) → the Pricing modal opens. Only the portfolio owner can change billing.",
           "First subscription from Starter: the app writes a doc to customers/{uid}/checkout_sessions; the extension fills in a Stripe Checkout URL and the app redirects there. (Already-paid owners are instead sent to the Stripe Customer Portal via the createPortalLink extension callable; Business opens an email to sales.)",
           "Owner completes payment on Stripe's hosted page.",
-          "The Stripe extension (its own webhook) sets the stripeRole custom claim from the product's firebaseRole metadata. Olio's /api/webhooks/stripe does NOT set this claim — it only runs downgrade cleanup after the fact.",
+          "The Stripe extension (its own webhook) sets the stripeRole custom claim from the product's firebaseRole metadata. Nuleeo's /api/webhooks/stripe does NOT set this claim — it only runs downgrade cleanup after the fact.",
           "Owner returns to app.oliowallet.com/?checkout=success → CheckoutReturnHandler force-refreshes the auth token so the new plan shows immediately.",
         ],
       },
@@ -578,7 +578,7 @@ const SECTIONS: Section[] = [
   {
     key: "integrations",
     label: "Integrations",
-    blurb: "Every external service Olio depends on, and where it is configured.",
+    blurb: "Every external service Nuleeo depends on, and where it is configured.",
     groups: [
       {
         title: "Firebase",
@@ -598,7 +598,7 @@ const SECTIONS: Section[] = [
       },
       {
         title: "OpenAI",
-        body: "Powers Ask Olio, AI briefings, and the agreements summarizer.",
+        body: "Powers Ask Nuleeo, AI briefings, and the agreements summarizer.",
       },
       {
         title: "Cloudflare",
@@ -617,7 +617,7 @@ const SECTIONS: Section[] = [
   {
     key: "roles",
     label: "Roles & Privileges",
-    blurb: "How role-based access works in Olio.",
+    blurb: "How role-based access works in Nuleeo.",
     groups: [
       {
         title: "Three privilege matrices",

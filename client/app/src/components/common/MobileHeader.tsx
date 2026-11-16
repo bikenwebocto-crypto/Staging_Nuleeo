@@ -318,7 +318,7 @@ export function MobileHeader() {
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="text-sm font-semibold text-foreground truncate">
-                                {inv.ownerName || inv.ownerEmail || "An Olio user"}
+                                {inv.ownerName || inv.ownerEmail || "An Nuleeo user"}
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 Wants to grant you{" "}

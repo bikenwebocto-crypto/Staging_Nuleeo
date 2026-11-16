@@ -188,9 +188,16 @@ export function AppLayout({ children }: AppLayoutProps) {
     ],
   );
 
+  // Nuleeo theme on <html> so portalled dialogs/drawers share the palette.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add("theme-nuleeo");
+    return () => root.classList.remove("theme-nuleeo");
+  }, []);
+
   return (
     <AppShellContext.Provider value={ctxValue}>
-      <div className="bg-background flex font-sans overflow-x-hidden h-[var(--app-vh)]">
+      <div className="nuleeo-shell bg-background flex font-sans overflow-x-hidden h-[var(--app-vh)]">
         <SkipToContent />
         <DesktopSidebar role={role} />
         <div
@@ -208,7 +215,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           />
           {showMobileHeader && <MobileHeader />}
 
-          {/* Hidden on the Messages page — Ask Olio is already pinned at the top
+          {/* Hidden on the Messages page — Ask Nuleeo is already pinned at the top
               of the conversation list there, so the floating shortcut is
               redundant (and on desktop it overlapped the composer's Send). */}
           {role !== "tenant" && !location.includes("/messages") && <AskOlioFloating />}

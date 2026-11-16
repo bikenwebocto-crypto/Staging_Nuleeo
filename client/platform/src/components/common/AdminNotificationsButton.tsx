@@ -131,7 +131,7 @@ function AdminNotifications({ canLeads, canTx }: { canLeads: boolean; canTx: boo
                   />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold text-foreground truncate">
-                      {lead.userName || lead.userEmail || "An Olio user"}
+                      {lead.userName || lead.userEmail || "An Nuleeo user"}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       Interested in <span className="font-medium">{lead.listingTitle}</span>

@@ -60,7 +60,7 @@ interface SendProfile {
 const USER_SEND_PROFILE: SendProfile = { delaysMs: [0, 250, 1000], timeoutMs: 15000 };
 const STAFF_SEND_PROFILE: SendProfile = { delaysMs: [0, 400], timeoutMs: 8000 };
 
-// Olio symbol shown as the notification icon. Public asset served by the app
+// Nuleeo symbol shown as the notification icon. Public asset served by the app
 // site so OneSignal can fetch it. This ONLY applies to Chrome and Firefox (via
 // chrome_web_icon/firefox_icon below) — for those it overrides the dashboard
 // "Default Icon" so the source of truth lives in the repo.

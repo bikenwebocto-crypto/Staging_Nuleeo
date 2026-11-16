@@ -61,7 +61,7 @@ export function registerAdminPushRoutes(
         const authUser = await auth().getUserByEmail(targetEmail);
         const result = await sendPush({
           externalUserId: authUser.uid,
-          title: "Olio — test push",
+          title: "Nuleeo — test push",
           message: `Hi! This is a test push sent at ${new Date().toLocaleTimeString("en-GB")}.`,
           url: "https://app.oliowallet.com/",
         });
@@ -82,7 +82,7 @@ export function registerAdminPushRoutes(
       } catch (err: unknown) {
         const e = err as { code?: string };
         if (e?.code === "auth/user-not-found") {
-          return res.status(404).json({ error: "No Olio account with that email" });
+          return res.status(404).json({ error: "No Nuleeo account with that email" });
         }
         if (err instanceof PushError) {
           return res

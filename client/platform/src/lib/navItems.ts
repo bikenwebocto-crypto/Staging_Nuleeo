@@ -26,6 +26,6 @@ export function getBottomNavItems(role: BottomNavRole): BottomNavItem[] {
   }
   // owner default
   return menuItems.filter((item) =>
-    ["Home", "Properties", "Agreements", "Activity", "Ask Olio"].includes(item.label),
+    ["Home", "Properties", "Agreements", "Activity", "Ask Nuleeo"].includes(item.label),
   );
 }

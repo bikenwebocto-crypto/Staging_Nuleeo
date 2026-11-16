@@ -779,7 +779,7 @@ export default function ActivityPage() {
                                     tx.applicationFeeCents > 0 ? (
                                     <>
                                       <span className="text-[10px] text-muted-foreground/80">
-                                        Olio fee −{tx.currency}
+                                        Nuleeo fee −{tx.currency}
                                         {(tx.applicationFeeCents / 100).toFixed(2)}
                                       </span>
                                       {typeof tx.ownerNetCents === "number" ? (

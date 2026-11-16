@@ -79,7 +79,7 @@ export function registerAccessRoutes(app: Express): void {
     }
   });
 
-  // Upsert one slot. The contact must already have an Olio account for the
+  // Upsert one slot. The contact must already have an Nuleeo account for the
   // grant to actually activate — but we MUST NOT reveal whether the email
   // maps to an account. A distinct 404 on user-not-found would be an
   // account-existence oracle (the same enumeration leak forgotPassword.ts
@@ -197,13 +197,13 @@ export function registerAccessRoutes(app: Express): void {
             .trim() ||
           req.user!.profile?.email ||
           req.user!.email ||
-          "An Olio user";
+          "An Nuleeo user";
         await Promise.all([
           notifyUser({
             externalUserId: contactUserId,
             category: "propertyActivity",
             title: "Portfolio access invitation",
-            message: `${ownerName} wants to grant you ${type} access to their portfolio. Open Olio to accept or decline.`,
+            message: `${ownerName} wants to grant you ${type} access to their portfolio. Open Nuleeo to accept or decline.`,
             url: "https://app.oliowallet.com/portfolio-access",
           }).catch((err) => {
             // Non-fatal — the contact is still created, the invitee
@@ -285,7 +285,7 @@ export function registerAccessRoutes(app: Express): void {
           ...g,
           ownerName: o
             ? `${o.firstName ?? ""} ${o.lastName ?? ""}`.trim() || (o.email ?? "")
-            : "An Olio user",
+            : "An Nuleeo user",
           ownerEmail: o?.email ?? "",
         };
       });

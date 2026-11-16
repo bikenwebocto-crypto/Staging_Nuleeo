@@ -579,7 +579,7 @@ export default function AdminNotificationMarketingPage() {
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. New feature in your Olio Wallet"
+                  placeholder="e.g. New feature in your Nuleeo Wallet"
                   maxLength={200}
                   className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
@@ -677,13 +677,13 @@ export default function AdminNotificationMarketingPage() {
                           which showed an empty dark box instead of the logo. */}
                       <img
                         src="/icon-192.png"
-                        alt="Olio Wallet"
+                        alt="Nuleeo Wallet"
                         className="w-full h-full object-cover"
                       />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-semibold text-foreground">Olio Wallet</span>
+                        <span className="text-xs font-semibold text-foreground">Nuleeo Wallet</span>
                         <span className="text-[10px] text-muted-foreground">now</span>
                       </div>
                       <div className="text-sm font-semibold text-foreground mt-1 break-words">

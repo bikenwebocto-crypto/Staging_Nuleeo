@@ -33,7 +33,7 @@ export async function uploadPropertyDocument(
   file: File,
   propertyId: string,
   tenantId?: string,
-): Promise<void> {
+): Promise<{ id: string; name: string; createdAt: string }> {
   // Some browsers report an empty type for older .doc/.xls files; let the
   // server be the judge there rather than rejecting a valid upload locally.
   if (file.type && !ALLOWED_DOCUMENT_TYPES.includes(file.type)) {
@@ -67,10 +67,11 @@ export async function uploadPropertyDocument(
 
   // Step 3: finalize — server attaches a download token, writes metadata, and
   // (when tenantId is set) pushes the tenant under the `documents` category.
-  await apiRequest("POST", "/api/owner/documents/finalize", {
+  const finalRes = await apiRequest("POST", "/api/owner/documents/finalize", {
     objectPath,
     propertyId,
     name: file.name,
     ...(tenantId ? { tenantId } : {}),
   });
+  return (await finalRes.json()) as { id: string; name: string; createdAt: string };
 }

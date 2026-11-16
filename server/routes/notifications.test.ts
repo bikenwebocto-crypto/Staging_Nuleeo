@@ -2,7 +2,7 @@
 // allowlist (M4).
 //
 // Regression focus: the broadcast click-through opens directly from a
-// trusted, Olio-branded push to up to MAX_BROADCAST real users. A
+// trusted, Nuleeo-branded push to up to MAX_BROADCAST real users. A
 // compromised / rogue comm.email session must not be able to turn the
 // channel into a phishing amplifier, so `parseSendInput` rejects any
 // `url` that isn't an https link on an oliowallet.com host (no userinfo
@@ -90,7 +90,7 @@ beforeEach(() => {
 });
 
 describe("POST /api/admin/notifications/send — broadcast URL allowlist (M4)", () => {
-  it("rejects a non-Olio host", async () => {
+  it("rejects a non-Nuleeo host", async () => {
     const res = await send("https://evil.example/login");
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/oliowallet\.com/i);
@@ -102,7 +102,7 @@ describe("POST /api/admin/notifications/send — broadcast URL allowlist (M4)", 
     expect(res.body.error).toMatch(/oliowallet\.com/i);
   });
 
-  it("rejects a non-https scheme even on an Olio host", async () => {
+  it("rejects a non-https scheme even on an Nuleeo host", async () => {
     const res = await send("http://app.oliowallet.com");
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/oliowallet\.com/i);
