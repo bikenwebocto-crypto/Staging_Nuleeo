@@ -23,7 +23,18 @@
       "PowerShell(npx vitest run shared/structure.test.ts server/routes.integration.test.ts 2>&1)",
       "PowerShell(node \"C:\\\\Users\\\\Admin\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\96b6c5033212e421\\\\21c83b00-77aa-483f-a31a-d7d8ca80a9c4\\\\scratchpad\\\\rebrand.mjs\" \"d:\\\\Webocto projects\\\\olio-fe-main\")",
       "Bash(git -c core.autocrlf=false diff HEAD -- client/app/src/lib/ownerQueries.ts server/routes/portfolio.ts server/routes/properties.ts shared/firestore-schema.ts)",
-      "Bash(grep -v \"^\\\\s*[0-9]*:\\\\s*//\")"
+      "Bash(grep -v \"^\\\\s*[0-9]*:\\\\s*//\")",
+      "PowerShell(git log -S\"ask-olio\" --oneline -- client/app/src)",
+      "Bash(wc -l lib/*.ts* pages/owner/*.tsx components/owner/**/*.tsx components/owner/*.tsx)",
+      "PowerShell(cd \"d:\\\\Webocto projects\\\\olio-fe-main\\\\client\\\\app\\\\src\\\\components\\\\owner\"; foreach\\($f in \"EditPropertyDrawer.tsx\",\"ProjectDetailsDrawer.tsx\",\"ProjectDialog.tsx\",\"property\\\\ui.tsx\"\\){ \"== $f\"; \\(Get-Content $f | Measure-Object -Line\\).Lines; Select-String -Path $f -Pattern \"className=|import\" | Select-Object -First 25 | % { $_.Line.Trim\\(\\) } })",
+      "PowerShell(cd \"d:\\\\Webocto projects\\\\olio-fe-main\\\\client\\\\app\\\\src\"; Select-String -Path pages\\\\owner\\\\PropertyDetailsPage.tsx -Pattern \"^import|DARK_CARD|PALETTE\" | Select-Object -First 40 | % { \"$\\($_.LineNumber\\): $\\($_.Line.Trim\\(\\)\\)\" }; \\(Get-Content pages\\\\owner\\\\PropertyDetailsPage.tsx | Measure-Object -Line\\).Lines; Select-String -Path components\\\\owner\\\\EditPropertyDrawer.tsx -Pattern \"ResponsiveDrawer|bg-primary|bg-background|bg-card|border-border|text-muted\" | Measure-Object | % Count)",
+      "PowerShell(cd \"d:\\\\Webocto projects\\\\olio-fe-main\\\\client\"; Get-ChildItem -Recurse -Filter ResponsiveDrawer.tsx -Exclude node_modules | ? { $_.FullName -notmatch \"node_modules\" } | % { $_.FullName; Get-Content $_.FullName })",
+      "PowerShell(npm run check 2>&1)",
+      "PowerShell(npx vitest run server/routes/finance server/routes/stripeWebhook server/routes/tenant server/routes/tickets server/routes/portfolio server/services/rentTransaction shared 2>&1)",
+      "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -First 30; \"---app---\"; npx tsc --noEmit -p client/app/tsconfig.json 2>&1 | Select-Object -First 30)",
+      "PowerShell(npx vitest run server/routes/properties.test.ts server/routes/properties.authz.test.ts server/routes/entities.test.ts 2>&1)",
+      "PowerShell(npx vitest run server/routes/properties.test.ts server/routes/properties.authz.test.ts server/routes/entities.test.ts shared/entities.test.ts 2>&1)",
+      "PowerShell(npx tsc --noEmit 2>&1)"
     ]
   }
 }

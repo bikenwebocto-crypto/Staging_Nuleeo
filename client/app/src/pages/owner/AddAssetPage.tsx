@@ -314,7 +314,7 @@ export default function AddAssetPage() {
         city: city.trim(),
         country,
         ownershipType: ownedBy === "company" ? "company" : "individual",
-        ...(company ? { companyName: company.name } : {}),
+        ...(ownedBy === "company" && company ? { entityId: company.id } : {}),
         acquisitionPrice: parseMoney(purchase) ?? 0,
         propertyValue: parseMoney(market) ?? 0,
         ...(isBuilding ? {} : { propertyUse: use === "not_rented" ? "owner_occupied" : "rent" }),

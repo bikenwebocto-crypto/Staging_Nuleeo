@@ -63,13 +63,19 @@ type UiCategory = {
   id: string;
   label: string;
   type: "income" | "expense";
-  category: "rent" | "maintenance" | "tax" | "fee" | "other";
+  category: TransactionCategory;
   icon: typeof Home;
 };
 
 const CATEGORIES: UiCategory[] = [
   { id: "rent", label: "Rent Payment", type: "income", category: "rent", icon: Home },
-  { id: "deposit", label: "Security Deposit", type: "income", category: "other", icon: Banknote },
+  {
+    id: "deposit",
+    label: "Security Deposit",
+    type: "income",
+    category: "security_deposit",
+    icon: Banknote,
+  },
   { id: "fee", label: "Service/Late Fee", type: "income", category: "fee", icon: Coins },
   {
     id: "maintenance",
@@ -80,8 +86,8 @@ const CATEGORIES: UiCategory[] = [
   },
   { id: "repair", label: "Repairs", type: "expense", category: "maintenance", icon: Hammer },
   { id: "tax", label: "Property Tax", type: "expense", category: "tax", icon: Landmark },
-  { id: "insurance", label: "Insurance", type: "expense", category: "other", icon: Shield },
-  { id: "utility", label: "Utilities", type: "expense", category: "other", icon: Zap },
+  { id: "insurance", label: "Insurance", type: "expense", category: "insurance", icon: Shield },
+  { id: "utility", label: "Utilities", type: "expense", category: "utilities", icon: Zap },
   {
     id: "cleaning",
     label: "Cleaning",
@@ -89,8 +95,20 @@ const CATEGORIES: UiCategory[] = [
     category: "maintenance",
     icon: PaintBucket,
   },
-  { id: "management", label: "Management Fee", type: "expense", category: "fee", icon: Briefcase },
-  { id: "mortgage", label: "Mortgage Payment", type: "expense", category: "other", icon: FileText },
+  {
+    id: "management",
+    label: "Management Fee",
+    type: "expense",
+    category: "professional_fee",
+    icon: Briefcase,
+  },
+  {
+    id: "mortgage",
+    label: "Mortgage Payment",
+    type: "expense",
+    category: "mortgage",
+    icon: FileText,
+  },
   { id: "other", label: "Other", type: "expense", category: "other", icon: MoreHorizontal },
 ];
 

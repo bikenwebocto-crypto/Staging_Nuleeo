@@ -18,6 +18,8 @@ import { COL, type OwnerPlanKey, type Transaction, type User } from "../../share
 import { notifyUser } from "./push";
 import { ensurePortfolio } from "./portfolioBanking";
 import { advanceAgreementForPayment, advanceMonths } from "./rentCycle";
+import { recordAudit } from "./transactionLedger";
+import { workspaceIdFor } from "../../shared/transactions";
 
 // Advance a YYYY-MM-DD date by one month (month-end safe — Jan 31 → Feb 28/29).
 // Thin back-compat wrapper over the shared advanceMonths so the clamping logic
@@ -173,6 +175,16 @@ export async function recordRentTransactionFromSession(
     status: "completed",
     timestamp: new Date().toISOString(),
     paymentMethod: "card",
+    source: "rent",
+    viewKind: "payment",
+    createdAt: new Date().toISOString(),
+    ...(portfolioId ? { workspaceId: workspaceIdFor({ portfolioId }) } : {}),
+    externalReferences: [
+      { provider: "stripe", kind: "checkout_session", id: session.id },
+      ...(paymentIntentId
+        ? [{ provider: "stripe" as const, kind: "payment_intent" as const, id: paymentIntentId }]
+        : []),
+    ],
     stripeSessionId: session.id,
     verifiedAt: new Date().toISOString(),
     // Cycle this card payment covers, captured at checkout creation — lets
@@ -195,6 +207,18 @@ export async function recordRentTransactionFromSession(
     t.set(ref, tx);
     return { result: tx, created: true };
   });
+
+  // Best-effort, outside the transaction: an audit failure must never fail a
+  // paid-rent record (a webhook 5xx forces Stripe replays).
+  if (created) {
+    await recordAudit({
+      transactionId: ref.id,
+      action: "created",
+      actorId: "stripe",
+      actorType: "system",
+      after: { status: tx.status, amount: tx.amount, source: tx.source },
+    });
+  }
 
   // Loser of the race (or webhook replay) — return without re-running
   // side effects so we don't double-advance the agreement or double-push.

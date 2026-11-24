@@ -60,7 +60,15 @@ function plural(n: number, one: string, many: string): string {
 // One-line description under a workspace name.
 export function workspaceSubtitle(ws: WorkspaceListEntry): string {
   if (!ws.isSelf) return `Shared by ${ws.ownerName} · ${workspaceRoleLabel(ws)}`;
-  if (ws.type === "business") return "Companies, their accounts, VAT and reports";
+  if (ws.type === "business") {
+    const b = ws.businessStats;
+    if (!b || (b.companies === 0 && b.archived === 0)) {
+      return "Companies, their accounts, VAT and reports";
+    }
+    return b.archived > 0
+      ? `${plural(b.companies, "company", "companies")} · ${b.archived} archived`
+      : plural(b.companies, "company", "companies");
+  }
   if (!ws.stats) return "Properties, units and tenants";
   return `${plural(ws.stats.properties, "property", "properties")} · ${plural(
     ws.stats.activeTenants,

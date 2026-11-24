@@ -18,6 +18,7 @@ import { isPublicHttpsUrl } from "../services/safeRedirect";
 import { sanitizeText } from "../services/unicodeSanitize";
 import { hasPortfolioPrivilege } from "../services/portfolioPrivilege";
 import { ensurePortfolio } from "../services/portfolioBanking";
+import { loadOwnedEntity, resolvePropertyOwnership } from "../services/propertyOwnership";
 import { propertyHasActiveTenancy } from "../services/occupancy";
 import { prepaidRentActivityRow } from "../services/prepaidActivity";
 import { reqStr } from "../util";
@@ -274,6 +275,16 @@ export function registerPropertyRoutes(app: Express): void {
       // can't nest inside another one.
       const portfolio = await ensurePortfolio(uid);
 
+      // Ownership: personal (default) links the owner's PERSONAL entity,
+      // creating it on first use; company must be one of the owner's companies.
+      const ownership = await resolvePropertyOwnership(
+        uid,
+        uid,
+        ownershipType ?? "individual",
+        body.entityId,
+      );
+      if (!ownership.ok) return res.status(400).json({ error: ownership.error });
+
       // Optional project grouping — must be one of this portfolio's projects.
       const projectId = str(body.projectId, 128);
       if (projectId) {
@@ -326,8 +337,11 @@ export function registerPropertyRoutes(app: Express): void {
         ...(bool(body.cooling) !== undefined ? { cooling: bool(body.cooling)! } : {}),
         ...(bool(body.solarPanels) !== undefined ? { solarPanels: bool(body.solarPanels)! } : {}),
         ...(bool(body.storageUnit) !== undefined ? { storageUnit: bool(body.storageUnit)! } : {}),
-        ...(ownershipType ? { ownershipType } : {}),
-        ...(str(body.companyName) ? { companyName: str(body.companyName)! } : {}),
+        ownershipType: ownership.fields.ownershipType,
+        entityId: ownership.fields.entityId,
+        ...(typeof ownership.fields.companyName === "string"
+          ? { companyName: ownership.fields.companyName }
+          : {}),
         ...(titleDeedsStatus ? { titleDeedsStatus } : {}),
         ...(developmentStatus ? { developmentStatus } : {}),
         ...(propertyUse ? { propertyUse } : {}),
@@ -729,9 +743,18 @@ export function registerPropertyRoutes(app: Express): void {
       setIfDefined("cooling", bool(body.cooling));
       setIfDefined("solarPanels", bool(body.solarPanels));
       setIfDefined("storageUnit", bool(body.storageUnit));
-      if (OWNERSHIP_TYPES.includes(body.ownershipType as OwnershipType))
-        updates.ownershipType = body.ownershipType;
-      setIfDefined("companyName", str(body.companyName));
+      // Ownership goes through the entity resolver: companyName is derived
+      // from the chosen entity, never accepted as free text.
+      if (OWNERSHIP_TYPES.includes(body.ownershipType as OwnershipType)) {
+        const ownership = await resolvePropertyOwnership(
+          existing.ownerId,
+          uid,
+          body.ownershipType as OwnershipType,
+          body.entityId,
+        );
+        if (!ownership.ok) return res.status(400).json({ error: ownership.error });
+        Object.assign(updates, ownership.fields);
+      }
       if (TITLE_STATUSES.includes(body.titleDeedsStatus as TitleDeedsStatus))
         updates.titleDeedsStatus = body.titleDeedsStatus;
       if (DEVELOPMENT_STATUSES.includes(body.developmentStatus as DevelopmentStatus))
@@ -863,11 +886,19 @@ export function registerPropertyRoutes(app: Express): void {
           if (!name) return bad("Each owner needs a name");
           if (share === undefined || share < 0.01 || share > 100)
             return bad("Each owner's share must be between 0.01% and 100%");
+          // A linked entity must belong to the property owner — never trust
+          // an arbitrary id from the client.
+          let entityId: string | undefined;
+          if (o.entityId !== undefined && o.entityId !== null && o.entityId !== "") {
+            const entity = await loadOwnedEntity(existing.ownerId, o.entityId);
+            if (!entity) return bad(`Unknown company for ${name}`);
+            entityId = entity.id;
+          }
           owners.push({
             type: o.type === "company" ? "company" : "individual",
             name,
             sharePct: share,
-            ...(str(o.entityId, 128) ? { entityId: str(o.entityId, 128) } : {}),
+            ...(entityId ? { entityId } : {}),
           });
         }
         const total = Math.round(owners.reduce((s, o) => s + o.sharePct, 0) * 100) / 100;
@@ -876,13 +907,21 @@ export function registerPropertyRoutes(app: Express): void {
         profile.ownership = { owners };
         if (TITLE_STATUSES.includes(body.titleDeedStatus as TitleDeedsStatus))
           updates.titleDeedsStatus = body.titleDeedStatus;
-        // Migration bridge: legacy readers still use ownershipType/companyName.
+        // The largest owner decides what the property is held through. A
+        // company main owner must be a real entity; otherwise (individual or
+        // no owners listed) it's the property owner's PERSONAL entity. Always
+        // rewrites entityId/companyName so no stale link survives a switch.
         const main = [...owners].sort((a, b) => b.sharePct - a.sharePct)[0];
-        if (main) {
-          updates.ownershipType = main.type;
-          if (main.type === "company") updates.companyName = main.name;
-          if (main.entityId) updates.entityId = main.entityId;
-        }
+        if (main?.type === "company" && !main.entityId)
+          return bad("Pick the main owning company from your companies, or create it first");
+        const ownership = await resolvePropertyOwnership(
+          existing.ownerId,
+          uid,
+          main?.type === "company" ? "company" : "individual",
+          main?.entityId,
+        );
+        if (!ownership.ok) return bad(ownership.error);
+        Object.assign(updates, ownership.fields);
       } else if (section === "financing") {
         if (typeof body.hasLoan !== "boolean") return bad("Answer whether there is a loan");
         if (!body.hasLoan) {
@@ -987,6 +1026,9 @@ export function registerPropertyRoutes(app: Express): void {
       }
 
       const merged = { ...existing, ...updates, profile } as Property;
+      // Drop FieldValue.delete() sentinels so the response mirrors the doc.
+      for (const [k, v] of Object.entries(updates))
+        if (v instanceof FieldValue) delete (merged as unknown as Record<string, unknown>)[k];
       const hasTenancy = await propertyHasAnyTenancy(id);
       const computed = withProfileCompletion(merged, hasTenancy);
       await ref.update({

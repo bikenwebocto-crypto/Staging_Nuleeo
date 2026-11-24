@@ -295,6 +295,22 @@ body {
   html.theme-nuleeo body {
     background: #080d0e;
   }
+
+  /* New owner design inside ResponsiveDrawer variant="nuleeo": raised #1C2325
+     fields/tiles on a #111618 surface, white primary (pill buttons, selected
+     chips), no visible borders, bronze focus ring. Scoped so other drawers
+     keep the platform tokens. */
+  .nuleeo-drawer {
+    --background: #1c2325;
+    --card: #1c2325;
+    --secondary: #2a3134;
+    --muted: #1c2325;
+    --primary: #f4f4f2;
+    --primary-foreground: #060a0b;
+    --border: transparent;
+    --input: transparent;
+    --ring: #a78c68;
+  }
   /* Shell gradient: teal glow along the top fading into near-black. */
   html.theme-nuleeo .nuleeo-shell {
     background: var(--nuleeo-gradient);

@@ -530,6 +530,18 @@ vi.mock("../services/planLimits", () => ({
   }),
 }));
 
+// Entity resolution has its own Firestore queries the in-memory double
+// doesn't model; stub it to "personal holding" so create/edit stay focused
+// on caps and field validation.
+vi.mock("../services/propertyOwnership", () => ({
+  resolvePropertyOwnership: vi.fn(async () => ({
+    ok: true,
+    fields: { ownershipType: "individual", entityId: "personal-entity" },
+  })),
+  loadOwnedEntity: vi.fn(async () => null),
+  ensurePersonalEntity: vi.fn(),
+}));
+
 // safeRedirect.isPublicHttpsUrl is only used to validate the `image`
 // field on create. Tests don't pass `image` so the default real
 // implementation is fine — no mock needed.

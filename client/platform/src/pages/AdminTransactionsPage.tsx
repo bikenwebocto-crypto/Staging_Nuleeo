@@ -54,7 +54,13 @@ export default function AdminTransactionsPage() {
     refund: tx.refundedAmountCents != null ? tx.refundedAmountCents / 100 : null,
     feeRefund: tx.feeRefundedCents != null ? tx.feeRefundedCents / 100 : null,
     status:
-      tx.status === "completed" ? "Completed" : tx.status === "pending" ? "Pending" : "Failed",
+      tx.status === "completed"
+        ? "Completed"
+        : tx.status === "pending"
+          ? "Pending"
+          : tx.status === "resolved"
+            ? "Resolved"
+            : "Failed",
     date: tx.timestamp,
     property: tx.propertyAddress ?? "-",
     // No cross-party fallback: a rent row whose tenancy can no longer be

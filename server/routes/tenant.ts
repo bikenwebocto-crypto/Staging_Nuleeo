@@ -25,6 +25,8 @@ import { nextIncreaseDateOnOrAfter } from "../services/leaseDates";
 import { prepaidRentActivityRow } from "../services/prepaidActivity";
 import { reqStr } from "../util";
 import { logWarn } from "../services/log";
+import { recordAudit } from "../services/transactionLedger";
+import { workspaceIdFor } from "../../shared/transactions";
 import { isRealizedRent } from "../../shared/realizedRent";
 import { derivePaymentStatus } from "../../shared/paymentStatus";
 import {
@@ -674,6 +676,10 @@ export function registerTenantRoutes(app: Express): void {
       status: "pending",
       timestamp: paidAtIso,
       paymentMethod: method,
+      source: "rent",
+      viewKind: "payment",
+      workspaceId: workspaceIdFor({ portfolioId: pf.id }),
+      createdAt: new Date().toISOString(),
       ...(rentPeriod ? { rentPeriod } : {}),
       ...(proofUrl ? { proofUrl } : {}),
       ...(notes ? { notes } : {}),
@@ -692,6 +698,13 @@ export function registerTenantRoutes(app: Express): void {
     if (logAlreadyExisted) {
       return res.status(200).json({ ...tx, deduped: true });
     }
+    await recordAudit({
+      transactionId: ref.id,
+      action: "created",
+      actorId: uid,
+      actorType: "tenant",
+      after: { status: tx.status, amount: tx.amount, source: tx.source },
+    });
 
     // Notify the landlord that the tenant logged a payment. Awaited
     // so the push completes before the function instance can be
@@ -786,12 +799,21 @@ export function registerTenantRoutes(app: Express): void {
       }
 
       const verifiedAt = new Date().toISOString();
-      await ref.set({ status: "completed", verifiedAt }, { merge: true });
+      await ref.set({ status: "completed", verifiedAt, verifiedBy: uid }, { merge: true });
       const updated = {
         ...tx,
         status: "completed" as const,
         verifiedAt,
+        verifiedBy: uid,
       };
+      await recordAudit({
+        transactionId: txId,
+        action: "verified",
+        actorId: uid,
+        actorType: "owner",
+        before: { status: tx.status },
+        after: { status: "completed" },
+      });
 
       // Roll the rent cycle forward via the shared helper — frequency-aware
       // (quarterly/yearly leases advance a whole period, not one month) and

@@ -73,7 +73,8 @@ import { mirrorConnectAccount, type AccountSnapshot } from "../services/connectM
 import { reconcileAfterPlanChange, reactivateAfterPlanUpgrade } from "../services/planReconcile";
 import { supersedeActiveGift } from "../services/planBilling";
 import { notifyUser, notifyStaff } from "../services/push";
-import { COL, type OwnerPlanKey } from "../../shared/firestore-schema";
+import { COL, type OwnerPlanKey, type Transaction } from "../../shared/firestore-schema";
+import { recordAudit } from "../services/transactionLedger";
 import { logError, logInfo, logWarn } from "../services/log";
 
 // Minimal Stripe-event shape. Stripe sends `{ id, type, data: { object } }`
@@ -581,11 +582,80 @@ async function onChargeRefunded(charge: StripeCharge, eventId: string) {
           refundedAmountCents: refunded,
           ...(feeRefundedTotal != null ? { feeRefundedCents: feeRefundedTotal } : {}),
         });
+        // The snapshot holds the PRE-update values, so this is the previous
+        // cumulative refund even though update() already ran.
+        const original = snap.docs[0].data() as Transaction;
+        const prevRefunded = Math.max(0, Number(original.refundedAmountCents) || 0);
+        // Traceable refund record, linked to the original. One row per
+        // cumulative refund level: the id is keyed on (original, cumulative
+        // cents), so webhook redeliveries collide on create() and no-op.
+        // type:"neutral" on purpose — income aggregates already net the
+        // refund via the original's refundedAmountCents (shared/realizedRent),
+        // so summing this row as an expense would double-count it.
+        const deltaCents = refunded - prevRefunded;
+        if (deltaCents > 0) {
+          await createRefundRecord(original, deltaCents, refunded, charge.id, pi);
+        }
       }
     }
   } catch (err: unknown) {
     logWarn("stripe.refund-stamp-failed", { err: String(err).slice(0, 200) });
   }
+}
+
+async function createRefundRecord(
+  original: Transaction,
+  deltaCents: number,
+  cumulativeCents: number,
+  chargeId: string | undefined,
+  paymentIntentId: string,
+): Promise<void> {
+  const ref = db().collection(COL.transactions).doc(`refund_${original.id}_${cumulativeCents}`);
+  const now = new Date().toISOString();
+  const row: Transaction = {
+    id: ref.id,
+    ...(original.propertyId ? { propertyId: original.propertyId } : {}),
+    ...(original.unitId ? { unitId: original.unitId } : {}),
+    ...(original.tenantId ? { tenantId: original.tenantId } : {}),
+    ...(original.agreementId ? { agreementId: original.agreementId } : {}),
+    ...(original.ownerId ? { ownerId: original.ownerId } : {}),
+    ...(original.portfolioId ? { portfolioId: original.portfolioId } : {}),
+    ...(original.entityId ? { entityId: original.entityId } : {}),
+    ...(original.workspaceId ? { workspaceId: original.workspaceId } : {}),
+    name: `Refund: ${original.name}`,
+    amount: deltaCents / 100,
+    currency: original.currency,
+    type: "neutral",
+    category: "refund",
+    status: "completed",
+    timestamp: now,
+    createdAt: now,
+    paymentMethod: original.paymentMethod ?? "card",
+    source: "refund",
+    viewKind: "payment",
+    refundOfTransactionId: original.id,
+    // NOT stripePaymentIntentId: onChargeRefunded locates the ORIGINAL by that
+    // field with limit(1); the PI lives in externalReferences instead.
+    externalReferences: [
+      { provider: "stripe", kind: "payment_intent", id: paymentIntentId },
+      ...(chargeId ? [{ provider: "stripe" as const, kind: "charge" as const, id: chargeId }] : []),
+    ],
+    reconciliation: { status: "unreconciled" },
+  };
+  try {
+    await ref.create(row);
+  } catch (err) {
+    const code = (err as { code?: unknown } | null)?.code;
+    if (code === 6 || code === "already-exists" || code === "ALREADY_EXISTS") return;
+    throw err;
+  }
+  await recordAudit({
+    transactionId: original.id,
+    action: "refund_recorded",
+    actorId: "stripe",
+    actorType: "system",
+    after: { refundTransactionId: ref.id, refundedAmountCents: cumulativeCents },
+  });
 }
 
 // Map a Stripe product id → our internal OwnerPlanKey by reading the

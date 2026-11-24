@@ -106,7 +106,11 @@ function registerBusinessRoutes(app: Express): void {
   app.delete("/api/entities/draft", requireAuth, async (req, res) => {
     const { uid } = req.user!;
     try {
-      await db().collection(COL.users).doc(uid).update({ businessDraft: FieldValue.delete() });
+      // set+merge: discarding is idempotent and never fails on a missing doc.
+      await db()
+        .collection(COL.users)
+        .doc(uid)
+        .set({ businessDraft: FieldValue.delete() }, { merge: true });
       res.status(204).end();
     } catch (err: unknown) {
       res.status(500).json({ error: errMsg(err, "Failed to discard draft") });

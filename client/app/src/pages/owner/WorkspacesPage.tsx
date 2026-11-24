@@ -17,6 +17,11 @@ import {
 // Standalone workspace picker ("Welcome back" / "You're all set"). Lists every
 // workspace the user owns or was granted, opens one, and creates new ones.
 
+function isEmptyWorkspace(ws: WorkspaceListEntry): boolean {
+  if (ws.businessStats) return ws.businessStats.companies + ws.businessStats.archived === 0;
+  return !ws.stats || (ws.stats.properties === 0 && ws.stats.activeTenants === 0);
+}
+
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="min-w-0">
@@ -37,7 +42,7 @@ function WorkspaceCard({
   lastOpened: boolean;
   onOpen: () => void;
 }) {
-  const isNew = ws.stats ? ws.stats.properties === 0 && ws.stats.activeTenants === 0 : true;
+  const isNew = isEmptyWorkspace(ws);
   const verb = ws.isSelf && isNew ? "Start with" : "Open";
   const noun = ws.type === "real_estate" ? "real estate" : "business";
   return (
@@ -63,7 +68,13 @@ function WorkspaceCard({
         <p className="mt-1 text-sm text-[#A3A7AB]">{workspaceSubtitle(ws)}</p>
       </div>
 
-      {ws.stats ? (
+      {ws.businessStats ? (
+        <div className="grid grid-cols-3 gap-4">
+          <Stat label="Companies" value={ws.businessStats.companies} />
+          <Stat label="Archived" value={ws.businessStats.archived} />
+          <Stat label="Access" value="Owner" />
+        </div>
+      ) : ws.stats ? (
         <div className="grid grid-cols-3 gap-4">
           <Stat label="Properties" value={ws.stats.properties} />
           <Stat label="Active tenants" value={ws.stats.activeTenants} />
@@ -74,7 +85,9 @@ function WorkspaceCard({
         </div>
       ) : (
         <p className="text-sm text-[#7D8287]">
-          Companies, accounts and VAT will show here once company management is available.
+          {ws.type === "business"
+            ? "Add your first company to see it here."
+            : "Properties and tenants will show here."}
         </p>
       )}
 
@@ -120,9 +133,7 @@ export default function WorkspacesPage() {
   const firstName = profile?.firstName?.trim();
   const initials =
     `${profile?.firstName?.[0] ?? ""}${profile?.lastName?.[0] ?? ""}`.toUpperCase() || "·";
-  const allEmpty = workspaces.every(
-    (w) => !w.stats || (w.stats.properties === 0 && w.stats.activeTenants === 0),
-  );
+  const allEmpty = workspaces.every(isEmptyWorkspace);
   const highlightId = lastWorkspaceId ?? activeWorkspace?.id ?? workspaces[0]?.id;
 
   const open = (ws: WorkspaceListEntry) => {

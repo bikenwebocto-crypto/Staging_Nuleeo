@@ -18,6 +18,7 @@ import {
   type Tenant,
   type Transaction,
 } from "../../shared/firestore-schema";
+import { workspaceIdFor } from "../../shared/transactions";
 
 // These mirror the validation arrays used by the admin ticket PATCH
 // endpoint in routes.ts. Duplicated rather than imported because the
@@ -111,7 +112,9 @@ export function registerTicketRoutes(app: Express): void {
         // id on the mirrored ledger row at creation (reads still key off
         // ownerId). The row belongs to the property's owner, not the caller.
         const pf = await ensurePortfolio(t.ownerId);
-        const txRef = db().collection(COL.transactions).doc();
+        // Keyed on the ticket id: one ledger mirror per ticket, and the row is
+        // directly addressable from the ticket.
+        const txRef = db().collection(COL.transactions).doc(`ticket_${ref.id}`);
         const tx: Transaction = {
           id: txRef.id,
           propertyId: t.propertyId,
@@ -127,6 +130,11 @@ export function registerTicketRoutes(app: Express): void {
           status: "pending",
           timestamp: now,
           notes: ref.id,
+          source: "maintenance_report",
+          viewKind: "ledger",
+          workspaceId: workspaceIdFor({ portfolioId: pf.id }),
+          reconciliation: { status: "not_applicable" },
+          createdAt: now,
         };
         await txRef.set(tx);
 

@@ -39,6 +39,7 @@ export function ProjectDetailsDrawer({
     <ResponsiveDrawer
       open={open}
       onOpenChange={onOpenChange}
+      variant="nuleeo"
       title={project.name}
       subtitle={`Project · ${assigned.length} ${
         assigned.length === 1 ? "property" : "properties"

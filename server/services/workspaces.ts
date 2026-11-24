@@ -4,7 +4,8 @@
 // `Workspace` comment in shared/firestore-schema.ts): portfolio data, scoping
 // (ownerScope) and grants (portfolioAccessContacts) are untouched, so every
 // existing owner keeps working — their workspace is created lazily on first
-// list. Business workspaces carry no data yet.
+// list. A business workspace holds no data itself: its businesses are the
+// owner's COMPANY entities (COL.entities).
 //
 // Access for non-owners is derived live from ACTIVE PortfolioAccessContacts on
 // the wrapped portfolio, so a revoked grant drops the workspace immediately.
@@ -14,6 +15,7 @@ import { ensurePortfolio, getPortfolio } from "./portfolioBanking";
 import {
   COL,
   type AccessPermission,
+  type Entity,
   type PortfolioAccessContact,
   type Property,
   type Tenant,
@@ -26,6 +28,7 @@ import {
   defaultWorkspaceName,
   realEstateWorkspaceId,
   sortWorkspaces,
+  type BusinessWorkspaceStats,
   type WorkspaceListEntry,
   type WorkspaceListResponse,
   type WorkspaceRole,
@@ -137,6 +140,25 @@ async function loadStats(portfolioDocId: string): Promise<WorkspaceStats> {
   };
 }
 
+// Businesses are COMPANY entities owned by the workspace owner (see
+// shared/businesses.ts). Only two small fields are read per doc.
+async function loadBusinessStats(ownerId: string): Promise<BusinessWorkspaceStats> {
+  const snap = await db()
+    .collection(COL.entities)
+    .where("ownerId", "==", ownerId)
+    .select("entityType", "archivedAt")
+    .get();
+  let companies = 0;
+  let archived = 0;
+  for (const d of snap.docs) {
+    const e = d.data() as Pick<Entity, "entityType" | "archivedAt">;
+    if (e.entityType !== "COMPANY") continue;
+    if (e.archivedAt) archived++;
+    else companies++;
+  }
+  return { companies, archived };
+}
+
 async function toEntry(
   ws: Workspace,
   viewerUid: string,
@@ -155,6 +177,7 @@ async function toEntry(
     permissions,
     isSelf: ws.ownerId === viewerUid,
     stats: ws.type === "real_estate" && ws.portfolioId ? await loadStats(ws.portfolioId) : null,
+    ...(ws.type === "business" ? { businessStats: await loadBusinessStats(ws.ownerId) } : {}),
     createdAt: ws.createdAt,
   };
 }

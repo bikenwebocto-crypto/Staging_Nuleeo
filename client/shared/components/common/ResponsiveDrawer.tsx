@@ -14,6 +14,8 @@ interface ResponsiveDrawerProps {
   onBack?: () => void;
   /** Desktop max width class, default "max-w-[480px]" */
   desktopMaxWidth?: string;
+  /** "nuleeo" = new owner design: borderless dark surface, pill controls, scoped token remap. */
+  variant?: "default" | "nuleeo";
 }
 
 /**
@@ -29,7 +31,14 @@ export function ResponsiveDrawer({
   footer,
   onBack,
   desktopMaxWidth = "max-w-[480px]",
+  variant = "default",
 }: ResponsiveDrawerProps) {
+  const nuleeo = variant === "nuleeo";
+  const divider = nuleeo ? "" : "border-b border-border";
+  const footerDivider = nuleeo ? "" : "border-t border-border";
+  const iconBtn = nuleeo
+    ? "p-2 rounded-full hover:bg-white/[0.08] transition"
+    : "p-2 hover:bg-muted rounded-lg transition";
   const [isMobile, setIsMobile] = useState(false);
   const [keyboardInset, setKeyboardInset] = useState(0);
   // Desktop modal: id wires the title to aria-labelledby; ref scopes the
@@ -140,7 +149,12 @@ export function ResponsiveDrawer({
             style={{ ...mobileSize, bottom: `${keyboardInset}px` }}
           >
             <div
-              className="bg-card rounded-t-2xl border-t border-border flex flex-col overflow-hidden"
+              className={cn(
+                "flex flex-col overflow-hidden",
+                nuleeo
+                  ? "nuleeo-drawer rounded-t-[24px] bg-[#111618] text-[#F4F4F2]"
+                  : "bg-card rounded-t-2xl border-t border-border",
+              )}
               style={mobileSize}
             >
               {/* Drag handle */}
@@ -173,7 +187,7 @@ export function ResponsiveDrawer({
                     type="button"
                     onClick={() => onOpenChange(false)}
                     aria-label="Close"
-                    className="p-2 hover:bg-muted rounded-lg transition"
+                    className={iconBtn}
                   >
                     <X size={18} className="text-muted-foreground" />
                   </button>
@@ -186,7 +200,7 @@ export function ResponsiveDrawer({
               </div>
 
               {/* Footer */}
-              {footer && <div className="px-6 py-5 border-t border-border shrink-0">{footer}</div>}
+              {footer && <div className={cn("px-6 py-5 shrink-0", footerDivider)}>{footer}</div>}
             </div>
           </Drawer.Content>
         </Drawer.Portal>
@@ -210,13 +224,16 @@ export function ResponsiveDrawer({
         aria-labelledby={title ? titleId : undefined}
         tabIndex={-1}
         className={cn(
-          "relative bg-card w-[95vw] rounded-2xl shadow-2xl flex flex-col max-h-[80vh] outline-none",
+          "relative w-[95vw] shadow-2xl flex flex-col max-h-[80vh] outline-none",
+          nuleeo
+            ? "nuleeo-drawer rounded-[24px] bg-[#111618] text-[#F4F4F2]"
+            : "bg-card rounded-2xl",
           desktopMaxWidth,
         )}
       >
         {/* Header */}
         {(title || subtitle) && (
-          <div className="flex items-center justify-between px-8 py-5 border-b border-border shrink-0">
+          <div className={cn("flex items-center justify-between px-8 py-5 shrink-0", divider)}>
             <div className="flex items-center gap-2">
               {onBack && (
                 <button
@@ -241,7 +258,7 @@ export function ResponsiveDrawer({
               type="button"
               onClick={() => onOpenChange(false)}
               aria-label="Close"
-              className="p-2 hover:bg-muted rounded-lg transition"
+              className={iconBtn}
             >
               <X size={18} className="text-muted-foreground" />
             </button>
@@ -252,7 +269,7 @@ export function ResponsiveDrawer({
         <div className="flex-1 overflow-y-auto px-8 py-7">{children}</div>
 
         {/* Footer */}
-        {footer && <div className="px-8 py-5 border-t border-border shrink-0">{footer}</div>}
+        {footer && <div className={cn("px-8 py-5 shrink-0", footerDivider)}>{footer}</div>}
       </div>
     </div>
   );

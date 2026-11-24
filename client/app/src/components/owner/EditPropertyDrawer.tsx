@@ -40,6 +40,7 @@ import { CountSelect } from "@ui/components/common/CountSelect";
 import { CountrySelect } from "@ui/components/common/CountrySelect";
 import { CityAutocomplete } from "@ui/components/common/CityAutocomplete";
 import { getCountryCode, validatePostalCode } from "@ui/data/countries";
+import { CompanyEntityPicker } from "./CompanyEntityPicker";
 import { useToast } from "@ui/hooks/use-toast";
 import { apiRequest } from "@ui/lib/queryClient";
 import { uploadPropertyPhoto } from "@ui/lib/uploadPropertyPhoto";
@@ -79,11 +80,11 @@ const isYearInRange = (val: string, min: number, max: number): boolean => {
 };
 
 const inputCls =
-  "w-full bg-background border-none rounded-xl px-4 py-3.5 text-foreground font-medium placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary/20 transition";
+  "w-full h-11 bg-background border-none rounded-full px-4 text-sm text-foreground placeholder:text-[#7D8287] focus:outline-none focus:ring-2 focus:ring-[#A78C68] transition";
 // Year <select> styled to match inputCls height (the YearSelect adds the left
 // icon padding + chevron itself).
 const yearSelectCls =
-  "w-full appearance-none bg-background border-none rounded-xl pr-9 py-3.5 text-foreground font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 transition";
+  "w-full h-11 appearance-none bg-background border-none rounded-full pr-9 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#A78C68] transition";
 
 const PROPERTY_TYPES = [
   { id: "Apartment", icon: Building2, label: "Apartment" },
@@ -133,10 +134,10 @@ function Section({
   return (
     <section className="space-y-4">
       <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1C2325] text-[#73C2CD]">
           <Icon size={16} />
         </div>
-        <h3 className="text-sm font-bold uppercase tracking-wide text-foreground">{title}</h3>
+        <h3 className="text-sm font-semibold text-[#F4F4F2]">{title}</h3>
       </div>
       {children}
     </section>
@@ -227,7 +228,8 @@ export function EditPropertyDrawer({ open, onOpenChange, property }: EditPropert
   const [rentPrice, setRentPrice] = useState("");
 
   const [ownershipType, setOwnershipType] = useState<"individual" | "company">("individual");
-  const [companyName, setCompanyName] = useState("");
+  // Company entity the property is held through (ownershipType "company").
+  const [entityId, setEntityId] = useState("");
   const [titleDeedsStatus, setTitleDeedsStatus] = useState<"issued" | "pending">("issued");
 
   // Revoke local blob: previews on swap/unmount; leave remote https URLs alone.
@@ -291,7 +293,7 @@ export function EditPropertyDrawer({ open, onOpenChange, property }: EditPropert
           : "",
     );
     setOwnershipType(property.ownershipType === "company" ? "company" : "individual");
-    setCompanyName(property.companyName ?? "");
+    setEntityId(property.entityId ?? "");
     setTitleDeedsStatus(property.titleDeedsStatus === "pending" ? "pending" : "issued");
     // Reset any pending photo selection from a previous open.
     setPhotoFile(null);
@@ -370,6 +372,21 @@ export function EditPropertyDrawer({ open, onOpenChange, property }: EditPropert
       imageUrl = property.image;
     }
 
+    // Ownership is only re-sent when the user changed it, so editing other
+    // fields on a legacy (unlinked) property never trips the entity check.
+    const initialOwnership = property?.ownershipType === "company" ? "company" : "individual";
+    const ownershipChanged =
+      ownershipType !== initialOwnership ||
+      (ownershipType === "company" && entityId !== (property?.entityId ?? ""));
+    if (ownershipChanged && ownershipType === "company" && !entityId) {
+      toast({
+        title: "Choose a company",
+        description: "Pick one of your companies or create a new one.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const acquisitionPriceNum = Number(stripThousands(acquisitionPrice));
     const rentPriceNum = Number(stripThousands(rentPrice));
 
@@ -398,8 +415,9 @@ export function EditPropertyDrawer({ open, onOpenChange, property }: EditPropert
       cooling: coolingSystem,
       solarPanels: hasSolarPanels,
       storageUnit: hasStorageUnit,
-      ownershipType,
-      companyName: ownershipType === "company" ? companyName || undefined : undefined,
+      ...(ownershipChanged
+        ? { ownershipType, ...(ownershipType === "company" ? { entityId } : {}) }
+        : {}),
       titleDeedsStatus,
       ...(imageUrl ? { image: imageUrl } : {}),
       // Plots have no development status (the picker is hidden for them).
@@ -442,7 +460,7 @@ export function EditPropertyDrawer({ open, onOpenChange, property }: EditPropert
         data-testid="button-edit-save"
         onClick={handleSave}
         disabled={isSaving || isUploadingPhoto}
-        className="flex-1 font-bold text-lg py-4 rounded-2xl shadow-lg transition active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed bg-primary text-primary-foreground shadow-primary/30 hover:bg-primary/90"
+        className="flex h-11 flex-1 items-center justify-center rounded-full bg-white px-5 text-sm font-semibold text-[#060A0B] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isUploadingPhoto ? "Uploading photo…" : isSaving ? "Saving…" : "Save Changes"}
       </button>
@@ -453,9 +471,10 @@ export function EditPropertyDrawer({ open, onOpenChange, property }: EditPropert
     <ResponsiveDrawer
       open={open}
       onOpenChange={onOpenChange}
-      title="Edit Property"
+      title="Edit property"
       footer={footer}
       desktopMaxWidth="max-w-3xl"
+      variant="nuleeo"
     >
       <div className="max-w-2xl mx-auto space-y-10 pb-2">
         {/* BASICS — photo, name, type */}
@@ -478,7 +497,7 @@ export function EditPropertyDrawer({ open, onOpenChange, property }: EditPropert
           />
           <label
             htmlFor="edit-property-photo"
-            className="w-full h-48 bg-background border-2 border-dashed border-border rounded-2xl flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-secondary transition group relative overflow-hidden"
+            className="w-full h-48 bg-background border-2 border-dashed border-white/10 rounded-[24px] flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-secondary transition group relative overflow-hidden"
           >
             {photoPreview || property?.image ? (
               <img
@@ -1029,19 +1048,7 @@ export function EditPropertyDrawer({ open, onOpenChange, property }: EditPropert
           </div>
 
           {ownershipType === "company" && (
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-muted-foreground ml-1">
-                Company Name
-              </label>
-              <input
-                data-testid="input-edit-company"
-                type="text"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="e.g. Nuleeo Holdings Ltd"
-                className={inputCls}
-              />
-            </div>
+            <CompanyEntityPicker value={entityId} onChange={setEntityId} />
           )}
 
           <div className="space-y-2">

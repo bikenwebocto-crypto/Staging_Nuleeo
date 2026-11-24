@@ -31,6 +31,7 @@ import { registerAccessRoutes } from "./routes/access";
 import { registerPropertyRoutes } from "./routes/properties";
 import { registerProjectRoutes } from "./routes/projects";
 import { registerFinanceRoutes } from "./routes/finance";
+import { registerTransactionReviewRoutes } from "./routes/transactionReview";
 import { registerDiscoveryRoutes } from "./routes/discovery";
 import { registerPlanRoutes } from "./routes/plan";
 import { registerBriefingRoutes } from "./routes/briefing";
@@ -225,6 +226,7 @@ export function registerRoutes(app: Express): void {
   registerPropertyRoutes(app);
   registerProjectRoutes(app);
   registerFinanceRoutes(app);
+  registerTransactionReviewRoutes(app);
   registerDiscoveryRoutes(app, { requireActivePortfolioPlanPrivilege });
   registerPlanRoutes(app);
   registerBriefingRoutes(app, { hasOwnerPlanPrivilege });

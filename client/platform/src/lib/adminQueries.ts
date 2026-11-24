@@ -330,7 +330,7 @@ export interface AdminTransactionRow {
   currency: string;
   type: TransactionType;
   category: TransactionCategory;
-  status: "completed" | "pending" | "failed";
+  status: "completed" | "pending" | "failed" | "resolved";
   timestamp: string; // ISO
   date: string; // human-readable for table display
   propertyAddress: string | null;

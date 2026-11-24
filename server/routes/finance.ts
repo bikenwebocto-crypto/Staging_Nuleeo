@@ -24,15 +24,31 @@ import {
 import {
   COL,
   type Agreement,
+  type Entity,
   type Property,
   type Transaction,
   type TransactionCategory,
   type TransactionType,
 } from "../../shared/firestore-schema";
 import { prepaidRentActivityRow } from "../services/prepaidActivity";
+import { recordAudit } from "../services/transactionLedger";
+import { workspaceIdFor } from "../../shared/transactions";
 
 const VALID_TX_TYPES: TransactionType[] = ["income", "expense", "neutral"];
-const VALID_TX_CATEGORIES: TransactionCategory[] = ["rent", "maintenance", "tax", "fee", "other"];
+const VALID_TX_CATEGORIES: TransactionCategory[] = [
+  "rent",
+  "security_deposit",
+  "maintenance",
+  "tax",
+  "insurance",
+  "utilities",
+  "professional_fee",
+  "mortgage",
+  "fee",
+  "transfer",
+  "refund",
+  "other",
+];
 
 // How long after recording a manual activity the owner may still correct it.
 // The ledger is otherwise append-only (see Transaction in firestore-schema).
@@ -218,6 +234,9 @@ export function registerFinanceRoutes(app: Express): void {
     const body = (req.body ?? {}) as Record<string, unknown>;
 
     const propertyId = typeof body.propertyId === "string" ? body.propertyId : "";
+    // Business transactions are bound to a COMPANY entity instead of (or as
+    // well as) a property. At least one anchor is required.
+    const entityId = typeof body.entityId === "string" ? body.entityId : "";
     const amountRaw = Number(body.amount);
     const amount = Number.isFinite(amountRaw) && amountRaw > 0 ? amountRaw : 0;
     const type = VALID_TX_TYPES.includes(body.type as TransactionType)
@@ -234,28 +253,53 @@ export function registerFinanceRoutes(app: Express): void {
         ? new Date(body.timestamp).toISOString()
         : new Date().toISOString();
 
-    if (!propertyId) return res.status(400).json({ error: "propertyId is required" });
+    if (!propertyId && !entityId) {
+      return res.status(400).json({ error: "propertyId or entityId is required" });
+    }
     if (!amount) return res.status(400).json({ error: "amount must be > 0" });
     if (!type) return res.status(400).json({ error: "invalid type" });
     if (!category) return res.status(400).json({ error: "invalid category" });
+    if (category === "refund") {
+      return res.status(400).json({ error: "Refunds are recorded automatically" });
+    }
     if (!name) return res.status(400).json({ error: "name is required" });
 
     try {
-      const propSnap = await db().collection(COL.properties).doc(propertyId).get();
-      if (!propSnap.exists) return res.status(404).json({ error: "Property not found" });
-      const property = propSnap.data() as Property;
-      if (property.ownerId !== uid) return res.status(403).json({ error: "Forbidden" });
+      if (propertyId) {
+        const propSnap = await db().collection(COL.properties).doc(propertyId).get();
+        if (!propSnap.exists) return res.status(404).json({ error: "Property not found" });
+        const property = propSnap.data() as Property;
+        if (property.ownerId !== uid) return res.status(403).json({ error: "Forbidden" });
+      }
+      if (entityId) {
+        const entSnap = await db().collection(COL.entities).doc(entityId).get();
+        if (!entSnap.exists) return res.status(404).json({ error: "Business not found" });
+        const entity = entSnap.data() as Entity;
+        if (entity.ownerId !== uid) return res.status(403).json({ error: "Forbidden" });
+        if (entity.archivedAt) {
+          return res.status(409).json({ error: "This business is archived" });
+        }
+      }
 
-      // Phase-1 portfolio re-key: stamp the owner's STABLE portfolio doc id
-      // on the new ledger row at creation (reads still key off ownerId).
-      const pf = await ensurePortfolio(uid);
+      // Property-anchored rows belong to the real-estate portfolio (stable id,
+      // survives transfer). A business-only row (entity, no property) lives in
+      // the owner's business workspace and is NOT stamped with portfolioId, so
+      // it never leaks into the real-estate feed/analytics.
+      const pf = propertyId ? await ensurePortfolio(uid) : null;
 
       const ref = db().collection(COL.transactions).doc();
       const tx: Transaction = {
         id: ref.id,
-        propertyId,
+        ...(propertyId ? { propertyId } : {}),
+        ...(entityId ? { entityId } : {}),
         ownerId: uid,
-        portfolioId: pf.id,
+        ...(pf ? { portfolioId: pf.id } : {}),
+        workspaceId: workspaceIdFor({
+          portfolioId: pf?.id,
+          entityId: propertyId ? null : entityId,
+          ownerId: uid,
+        }),
+        viewKind: "ledger",
         name,
         amount,
         currency: "EUR",
@@ -271,6 +315,13 @@ export function registerFinanceRoutes(app: Express): void {
         ...(notes ? { notes } : {}),
       };
       await ref.set(tx);
+      await recordAudit({
+        transactionId: ref.id,
+        action: "created",
+        actorId: uid,
+        actorType: "owner",
+        after: { amount, type, category, source: "manual" },
+      });
       res.status(201).json(tx);
     } catch (err: unknown) {
       res.status(500).json({ error: errMsg(err, "Failed to record transaction") });
@@ -351,7 +402,10 @@ export function registerFinanceRoutes(app: Express): void {
         updates.type = body.type as TransactionType;
       }
       if (body.category !== undefined) {
-        if (!VALID_TX_CATEGORIES.includes(body.category as TransactionCategory)) {
+        if (
+          !VALID_TX_CATEGORIES.includes(body.category as TransactionCategory) ||
+          body.category === "refund"
+        ) {
           return res.status(400).json({ error: "invalid category" });
         }
         updates.category = body.category as TransactionCategory;
@@ -393,6 +447,21 @@ export function registerFinanceRoutes(app: Express): void {
       }
 
       await ref.update(updates);
+      await recordAudit({
+        transactionId: tx.id,
+        action: "updated",
+        actorId: uid,
+        actorType: "owner",
+        before: Object.fromEntries(
+          Object.keys(updates).map((k) => [
+            k,
+            (tx as unknown as Record<string, unknown>)[k] ?? null,
+          ]),
+        ),
+        after: Object.fromEntries(
+          Object.entries(updates).map(([k, v]) => [k, k === "notes" && notesCleared ? null : v]),
+        ),
+      });
       // Reflect the cleared note as an absent field in the response (the stored
       // doc had the field removed via FieldValue.delete()).
       const merged: Record<string, unknown> = { ...tx, ...updates };

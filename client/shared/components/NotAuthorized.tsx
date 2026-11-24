@@ -11,7 +11,12 @@
 import { ShieldOff } from "lucide-react";
 import { useAuth } from "@ui/lib/useAuth";
 
-export function NotAuthorized() {
+interface Props {
+  title?: string;
+  message?: string;
+}
+
+export function NotAuthorized({ title, message }: Props = {}) {
   const { signOut, profile } = useAuth();
   const displayName =
     `${profile?.firstName ?? ""} ${profile?.lastName ?? ""}`.trim() ||
@@ -23,11 +28,11 @@ export function NotAuthorized() {
       <div role="alert" className="max-w-sm w-full text-center text-neutral-300">
         <ShieldOff className="mx-auto h-8 w-8 text-amber-400" aria-hidden="true" />
         <h1 className="mt-4 text-lg font-semibold text-white">
-          You don't have access to this page
+          {title ?? "You don't have access to this page"}
         </h1>
         <p className="mt-2 text-sm text-neutral-400">
-          You're signed in as {displayName}, but this page requires a different role. Sign out and
-          use the account that has access.
+          {message ??
+            `You're signed in as ${displayName}, but this page requires a different role. Sign out and use the account that has access.`}
         </p>
         <div className="mt-6 flex flex-col gap-2">
           <button

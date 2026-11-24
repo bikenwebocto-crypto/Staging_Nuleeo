@@ -27,6 +27,10 @@ export const COL = {
   tenants: "tenants",
   agreements: "agreements",
   transactions: "transactions",
+  transactionAttachments: "transactionAttachments",
+  transactionImports: "transactionImports",
+  reconciliationMatches: "reconciliationMatches",
+  transactionAudit: "transactionAudit",
   partners: "partners",
   tickets: "tickets",
   broadcasts: "broadcasts",
@@ -2055,7 +2059,22 @@ export interface Invite {
 }
 
 export type TransactionType = "income" | "expense" | "neutral";
-export type TransactionCategory = "rent" | "maintenance" | "tax" | "fee" | "other";
+export type TransactionCategory =
+  | "rent"
+  | "security_deposit"
+  | "maintenance"
+  | "tax"
+  | "insurance"
+  | "utilities"
+  | "professional_fee"
+  | "mortgage"
+  | "fee"
+  | "transfer"
+  // Refund record linked to an original payment (source:"refund", type
+  // "neutral" — the original row's refundedAmountCents already nets the
+  // income, so the refund row must not be summed a second time).
+  | "refund"
+  | "other";
 // How a Transaction was paid. Distinct from the PaymentMethod (saved card) entity above.
 export type TxPaymentMethod =
   | "card" // Stripe Connect — auto-confirmed when checkout.session.completed fires
@@ -2063,6 +2082,8 @@ export type TxPaymentMethod =
   | "cash"
   | "check"
   | "other";
+
+export type TransactionStatus = "completed" | "pending" | "failed" | "resolved";
 
 // How a Transaction came into being. "manual" rows are owner-recorded ledger
 // entries (RecordActivityDialog); "rent" + the absent/legacy case are system-
@@ -2072,7 +2093,88 @@ export type TxPaymentMethod =
 // server/services/prepaidActivity.ts). Only "manual" rows are user-editable —
 // see the append-only note below. Absent on legacy rows (treated as non-manual,
 // i.e. immutable).
-export type TransactionSource = "manual" | "rent" | "prepaid";
+// Every NEW write path stamps `source` explicitly. Legacy rows without it are
+// classified at read time by resolveTransactionSource (shared/transactions.ts).
+//   rent               — Stripe card rent + tenant-logged offline rent
+//   settlement         — owner "final balance settlement" income row
+//   maintenance_report — tenant-reported issue mirrored as a neutral row
+//   refund             — refund record linked to an original payment
+//   bank_import        — row created from an imported bank statement line
+export type TransactionSource =
+  | "manual"
+  | "rent"
+  | "prepaid"
+  | "settlement"
+  | "maintenance_report"
+  | "refund"
+  | "subscription"
+  | "bank_import";
+
+export type TransactionViewKind = "payment" | "ledger";
+export type ReconciliationStatus =
+  "not_applicable" | "unreconciled" | "suggested" | "matched" | "excluded";
+export type ClassificationStatus = "suggested" | "approved" | "owner_modified";
+
+export interface TransactionExternalReference {
+  provider: "stripe" | "bank" | "other";
+  kind: "checkout_session" | "payment_intent" | "charge" | "invoice" | "bank_movement";
+  id: string;
+}
+
+export interface TransactionAttachment {
+  id: string;
+  name: string;
+  contentType: string;
+  size: number;
+  storagePath: string;
+  uploadedBy: string;
+  uploadedAt: string;
+  kind: "receipt" | "invoice" | "bank_statement" | "other";
+}
+
+export interface TransactionClassification {
+  status: ClassificationStatus;
+  category: TransactionCategory;
+  type: TransactionType;
+  propertyId?: string;
+  entityId?: string;
+  confidence?: number;
+  reviewedBy?: string;
+  reviewedAt?: string;
+}
+
+export interface TransactionReconciliation {
+  status: ReconciliationStatus;
+  externalMovementId?: string;
+  bankAccountId?: string;
+  matchedAmount?: number;
+  currency?: string;
+  matchedAt?: string;
+  matchedBy?: string;
+  confidence?: number;
+  excludedReason?: string;
+}
+
+export type TransactionAuditAction =
+  | "created"
+  | "updated"
+  | "verified"
+  | "classified"
+  | "reconciled"
+  | "refund_recorded"
+  | "attachment_added"
+  | "attachment_removed";
+
+export interface TransactionAuditEntry {
+  id: string;
+  transactionId: string;
+  action: TransactionAuditAction;
+  actorId: string;
+  actorType: "owner" | "tenant" | "admin" | "system";
+  createdAt: string;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+}
 
 // Mostly append-only ledger. System-generated rows (rent payments, anything
 // not source:"manual") must never be mutated — their amounts, commission
@@ -2087,6 +2189,9 @@ export interface Transaction {
   propertyId?: string;
   unitId?: string;
   tenantId?: string;
+  entityId?: string;
+  workspaceId?: string;
+  viewKind?: TransactionViewKind;
   // The lease this payment belongs to (Agreement.id). Stamped on every rent /
   // income row tied to a live lease at write time and on the synthetic prepaid
   // row; left UNSET on manual owner expenses and maintenance not bound to a
@@ -2125,7 +2230,7 @@ export interface Transaction {
   // resolved = a tenant-reported maintenance issue the owner has marked fixed.
   //   Only ever set on neutral/maintenance rows; see
   //   POST /api/owner/maintenance/resolve/:id.
-  status: "completed" | "pending" | "failed" | "resolved";
+  status: TransactionStatus;
   // The activity date — what the entry is *about*. Owner-recorded entries can
   // back-date this. NOT the row's creation time; see `createdAt` for the
   // wall-clock moment the row was written (used for the 24h edit window).
@@ -2172,10 +2277,75 @@ export interface Transaction {
   // on rows written by POST /api/owner/transactions ("manual"); gates the
   // owner's 24h edit window. Absent rows are treated as non-manual/immutable.
   source?: TransactionSource;
+  // Refund linkage: on a source:"refund" row, the original transaction id and
+  // the provider refund key; never set on the original itself.
+  refundOfTransactionId?: string;
+  // Bank import linkage (source:"bank_import" rows).
+  importId?: string;
+  bankAccountId?: string;
+  // Imported rows await owner review: they are written type:"neutral" with the
+  // SUGGESTED type/category in `classification`, so no existing income/expense
+  // aggregate counts them. Approval copies classification → type/category and
+  // flips status to "completed". See shared/transactions.ts.
+  classification?: TransactionClassification;
+  // Bank-matching state. Deliberately independent from `status` (payment
+  // state): a completed payment can be unreconciled, and reconciling never
+  // changes status. Absent on legacy rows → resolveReconciliationStatus.
+  reconciliation?: TransactionReconciliation;
+  attachments?: TransactionAttachment[];
+  externalReferences?: TransactionExternalReference[];
   // Wall-clock moment the row was written, independent of the (back-datable)
   // activity `timestamp`. Drives the 24h manual-edit window. Absent on legacy
   // rows and system rows that predate this field.
   createdAt?: string;
+}
+
+export interface TransactionImport {
+  id: string;
+  ownerId: string;
+  portfolioId: string;
+  provider: "csv" | "bank_feed" | "manual";
+  bankAccountId?: string;
+  name: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  sourceFile?: TransactionAttachment;
+  rowCount: number;
+  importedCount: number;
+  duplicateCount: number;
+  failedCount: number;
+  createdAt: string;
+  completedAt?: string;
+  error?: string;
+}
+
+// One bank-statement line as submitted to the import endpoint. `amount` is
+// SIGNED in major units: positive = money in, negative = money out.
+export interface BankMovementInput {
+  movementId?: string; // provider id when the bank supplies one
+  date: string; // ISO date or datetime
+  amount: number;
+  currency?: string;
+  description: string;
+}
+
+export interface ReconciliationMatch {
+  id: string;
+  ownerId: string;
+  portfolioId: string;
+  transactionId: string;
+  bankAccountId: string;
+  externalMovementId: string;
+  importId?: string;
+  // The bank line itself, kept so a REJECTED match can still be booked as a
+  // new pending import row without re-uploading the statement.
+  movement?: BankMovementInput;
+  amount: number;
+  currency: string;
+  status: "suggested" | "approved" | "rejected";
+  confidence: number;
+  createdAt: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
 }
 
 export type PartnerType = "broker" | "contractor" | "legal" | "cleaning" | "insurance" | "other";

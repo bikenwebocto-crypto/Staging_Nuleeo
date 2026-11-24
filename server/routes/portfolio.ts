@@ -12,6 +12,8 @@ import { auth, bucket, db, storageBucketName } from "../firebase";
 import { requireAuth } from "../auth";
 import { errMsg } from "../services/errMsg";
 import { logError, logWarn } from "../services/log";
+import { auditInTransaction } from "../services/transactionLedger";
+import { workspaceIdFor } from "../../shared/transactions";
 import { notifyUser } from "../services/push";
 import { checkAndIncrement as rateLimit } from "../services/rateLimit";
 import { signReadUrl } from "../services/signedReadUrl";
@@ -1885,8 +1887,20 @@ export function registerPortfolioRoutes(
           status: "completed",
           timestamp: now,
           createdAt: now,
+          source: "settlement",
+          viewKind: "payment",
+          ...(tenancy.portfolioId
+            ? { workspaceId: workspaceIdFor({ portfolioId: tenancy.portfolioId }) }
+            : {}),
         };
         t.set(txRef, tx);
+        auditInTransaction(t, {
+          transactionId: txRef.id,
+          action: "created",
+          actorId: uid,
+          actorType: "owner",
+          after: { status: tx.status, amount: tx.amount, source: tx.source },
+        });
         return { code: 200 as const, tenancy, settled: true };
       });
 

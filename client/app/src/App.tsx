@@ -16,6 +16,7 @@ import { useActivePortfolioPlan } from "@/lib/useActivePortfolioPlan";
 import { useSystemConfig } from "@ui/lib/systemStore";
 import { RequireAuth } from "@ui/components/RequireAuth";
 import { ProfileLoadError } from "@ui/components/ProfileLoadError";
+import { NotAuthorized } from "@ui/components/NotAuthorized";
 import { MaintenanceScreen } from "@ui/components/MaintenanceScreen";
 import { prefetchForRole } from "@/lib/prefetch";
 import { isOwnerExperience } from "@/lib/isOwner";
@@ -304,8 +305,8 @@ function PageFallback() {
 //   else â†’ /tenant
 //
 // Note: app.oliowallet.com is intentionally siloed from platform.oliowallet.com.
-// Even superadmins land on owner/tenant pages here; staff work happens on the
-// platform subdomain, which they must visit and sign in to separately. Never
+// Admin/superadmin accounts never reach this — StaffAccessGate blocks them; staff
+// work happens on the platform subdomain, which they sign in to separately. Never
 // auto-jump between subdomains â€” the user subdomain treats every account purely
 // by its owner/tenant identity.
 //
@@ -714,6 +715,36 @@ function MaintenanceGate({ children }: { children: ReactNode }) {
   );
 }
 
+// The user app (app subdomain / `npm run dev:app`) is for owners and tenants
+// only. Staff accounts (admin / superadmin) must use the platform app. This
+// runs AFTER backend authentication — `profile.roles` comes from /api/me — and
+// wraps the whole router, so every protected route (/, /workspaces, /owner,
+// /tenant, …) is blocked, not just the login screen. Pre-auth/legal pages and
+// the /auth/action email callbacks stay reachable.
+const BLOCKED_STAFF_ROLES = ["admin", "superadmin"] as const;
+const STAFF_PASSTHROUGH = /^\/(auth\/action|terms|privacy|legal)(\/|$)/;
+
+function StaffAccessGate({ children }: { children: ReactNode }) {
+  const { firebaseUser, profile } = useAuth();
+  const [location] = useLocation();
+  if (!firebaseUser || !profile || STAFF_PASSTHROUGH.test(location)) return <>{children}</>;
+
+  const isStaff = BLOCKED_STAFF_ROLES.some((r) => profile.roles?.includes(r));
+  if (isStaff) {
+    return (
+      <NotAuthorized
+        title="Access denied"
+        message="This account is not permitted to use this app. Admin and superadmin accounts must sign in through the platform app."
+      />
+    );
+  }
+
+  // Tenants are allowed: HomeRedirect sends them to /tenant, and
+  // RequireOwnerExperience bounces them off /workspaces and every owner route
+  // (the workspace switcher in the sidebar is owner-only too).
+  return <>{children}</>;
+}
+
 // Extracts the property id from a /properties/:id path (and nothing else â€”
 // /properties or /properties/:id/anything don't match). Used to give
 // logged-out visitors the public property view instead of bouncing them
@@ -826,7 +857,9 @@ export default function App() {
                 <OneSignalBridge />
                 <HeartbeatBridge />
                 <MaintenanceGate>
-                  <Router />
+                  <StaffAccessGate>
+                    <Router />
+                  </StaffAccessGate>
                 </MaintenanceGate>
               </TooltipProvider>
             </WorkspaceProvider>

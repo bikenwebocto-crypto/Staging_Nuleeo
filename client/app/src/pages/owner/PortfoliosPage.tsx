@@ -30,6 +30,7 @@ import { DeletePropertyDialog } from "@/components/owner/DeletePropertyDialog";
 import { EditPropertyDrawer } from "@/components/owner/EditPropertyDrawer";
 import { ProjectDetailsDrawer } from "@/components/owner/ProjectDetailsDrawer";
 import { ProjectDialog } from "@/components/owner/ProjectDialog";
+import { PortfolioOverview } from "@/components/owner/portfolio/PortfolioOverview";
 import { DARK_CARD, StatusChip, money, pct } from "@/components/owner/property/ui";
 import { useActivePortfolio } from "@/lib/activePortfolio";
 import { useOwnerProperties, type OwnerProperty } from "@/lib/ownerQueries";
@@ -94,6 +95,8 @@ interface Row {
   type: string;
   monthly: number;
   yieldPct: number | null;
+  totalUnits: number;
+  letUnits: number;
   status: { tone: "green" | "amber" | "coral" | "muted"; text: string };
   searchText: string;
 }
@@ -127,8 +130,13 @@ export default function PortfoliosPage() {
     const value = new URLSearchParams(search).get("ownership");
     return value === "company" || value === "personal" ? value : "all";
   }, [search]);
+  // Bare /portfolios shows the overview dashboard; ?view=all or an ownership
+  // filter shows the full asset list.
+  const showOverview = ownership === "all" && new URLSearchParams(search).get("view") !== "all";
   const setOwnership = (value: Ownership) =>
-    navigate(value === "all" ? "/portfolios" : `/portfolios?ownership=${value}`, { replace: true });
+    navigate(value === "all" ? "/portfolios?view=all" : `/portfolios?ownership=${value}`, {
+      replace: true,
+    });
 
   const properties = useMemo(() => propertiesQuery.data ?? [], [propertiesQuery.data]);
   const projects = useMemo(
@@ -169,6 +177,15 @@ export default function PortfoliosPage() {
         const value = property.propertyValue ?? 0;
         const yieldPct = value > 0 && monthly > 0 ? ((monthly * 12) / value) * 100 : null;
 
+        const totalUnits =
+          units.length > 0 ? Math.max(unitCount(property), units.length) : unitCount(property);
+        const letUnits =
+          units.length > 0
+            ? units.filter((unit) => unit.occupied).length
+            : property.tenancyState === "occupied"
+              ? 1
+              : 0;
+
         let status: Row["status"];
         if (property.status === "inactive") status = { tone: "muted", text: "Archived" };
         else if (isBuilding && units.length > 0) {
@@ -206,6 +223,8 @@ export default function PortfoliosPage() {
           type: typeLabel(property),
           monthly,
           yieldPct,
+          totalUnits,
+          letUnits,
           status,
           searchText,
         };
@@ -312,7 +331,7 @@ export default function PortfoliosPage() {
           <button
             type="button"
             onClick={() => navigate("/portfolios/new")}
-            className="inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-sm font-medium text-foreground transition hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-[#A78C68]"
+            className="inline-flex items-center gap-1.5 rounded-full bg-[#F4F4F2] px-4 py-2 text-sm font-medium text-[#060A0B] transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A78C68]"
           >
             <Plus size={16} aria-hidden="true" /> Add asset
           </button>
@@ -323,330 +342,393 @@ export default function PortfoliosPage() {
         <div className="mx-auto w-full max-w-[1440px] space-y-6">
           <h1 className="sr-only">Portfolio</h1>
 
-          {isSelf ? (
-            <button
-              type="button"
-              onClick={() => navigate("/portfolios/new")}
-              className="inline-flex items-center gap-2 rounded-full bg-[#F4F4F2] px-4 py-2.5 text-sm font-semibold text-[#060A0B] md:hidden"
-            >
-              <Plus size={16} aria-hidden="true" /> Add asset
-            </button>
-          ) : null}
-
-          {/* Filters */}
-          <section className={cn(DARK_CARD, "space-y-4 p-4")}>
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="flex h-10 min-w-[220px] flex-1 items-center gap-2 rounded-full bg-[#1C2325] px-4">
-                <Search size={16} style={{ color: PALETTE.muted }} aria-hidden="true" />
-                <input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search by name, city, structure or tenant…"
-                  aria-label="Search portfolio"
-                  className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#7D8287]"
-                />
-              </label>
-              <select
-                value={ownership}
-                onChange={(event) => setOwnership(event.target.value as Ownership)}
-                aria-label="Ownership"
-                className={selectClass}
-              >
-                <option value="all">All ownership</option>
-                <option value="company">Company-owned</option>
-                <option value="personal">Personally owned</option>
-              </select>
-              {isSelf ? (
-                <>
-                  <select
-                    value={projectFilter}
-                    onChange={(event) => setProjectFilter(event.target.value)}
-                    aria-label="Project"
-                    className={selectClass}
-                  >
-                    <option value="all">All projects</option>
-                    {projects.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.name}
-                      </option>
-                    ))}
-                    <option value="none">Not in a project</option>
-                  </select>
-                  <button
-                    type="button"
-                    onClick={openCreateProject}
-                    className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#1C2325] px-4 text-sm text-[#F4F4F2] transition hover:bg-[#2A3134] focus-visible:outline-2 focus-visible:outline-[#A78C68]"
-                  >
-                    <Plus size={14} aria-hidden="true" /> Add to project
-                  </button>
-                </>
-              ) : null}
-              <div
-                className="flex rounded-full bg-[#1C2325] p-1"
-                role="tablist"
-                aria-label="Status"
-              >
-                {(["active", "archived"] as const).map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    role="tab"
-                    aria-selected={lifecycle === value}
-                    onClick={() => setLifecycle(value)}
-                    className={cn(pillBase, "py-1.5")}
-                    style={{ color: lifecycle === value ? PALETTE.text : PALETTE.muted }}
-                  >
-                    {value === "active" ? "Active" : "Archived"}
-                    <span className="ml-2 text-xs" style={{ color: PALETTE.muted }}>
-                      {value === "active" ? activeCount : archivedCount}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-1" role="tablist" aria-label="Property type">
-              {TYPE_TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={typeFilter === tab.id}
-                  onClick={() => setTypeFilter(tab.id)}
-                  className={cn(
-                    pillBase,
-                    typeFilter === tab.id ? "bg-[#F4F4F2] text-[#060A0B]" : "",
-                  )}
-                  style={typeFilter === tab.id ? undefined : { color: PALETTE.text }}
+          {showOverview ? (
+            <>
+              {isError ? (
+                <div
+                  role="alert"
+                  className="flex items-center justify-between gap-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-amber-200"
                 >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {selectedProject ? (
-              <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-[#1C2325] px-4 py-3 text-sm">
-                <FolderKanban size={16} style={{ color: PALETTE.cyan }} aria-hidden="true" />
-                <span className="font-semibold">{selectedProject.name}</span>
-                <span style={{ color: PALETTE.muted }}>
-                  {selectedProjectCount} {selectedProjectCount === 1 ? "property" : "properties"}{" "}
-                  assigned
-                </span>
-                <div className="ml-auto flex items-center gap-1">
+                  <span className="flex items-center gap-2 text-sm font-medium">
+                    <AlertCircle size={16} aria-hidden="true" /> We couldn't load your portfolio.
+                  </span>
                   <button
                     type="button"
-                    onClick={() => setViewingProject(selectedProject)}
-                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium hover:bg-white/[0.08]"
+                    onClick={refetch}
+                    className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
                   >
-                    <Eye size={14} aria-hidden="true" /> View
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openEditProject(selectedProject)}
-                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium hover:bg-white/[0.08]"
-                  >
-                    <Pencil size={14} aria-hidden="true" /> Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleDeleteProject(selectedProject)}
-                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-[#FF7A7A] hover:bg-[#FF7A7A]/10"
-                  >
-                    <Trash2 size={14} aria-hidden="true" /> Delete
+                    Retry
                   </button>
                 </div>
-              </div>
-            ) : null}
-          </section>
-
-          {isError ? (
-            <div
-              role="alert"
-              className="flex items-center justify-between gap-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-amber-900 dark:text-amber-200"
-            >
-              <span className="flex items-center gap-2 text-sm font-medium">
-                <AlertCircle size={16} aria-hidden="true" /> We couldn't load your portfolio.
-              </span>
-              <button
-                type="button"
-                onClick={refetch}
-                className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+              ) : null}
+              <PortfolioOverview
+                assets={records
+                  .filter((row) => row.property.status !== "inactive")
+                  .map((row) => ({
+                    property: row.property,
+                    name: row.name,
+                    type: row.type,
+                    value: row.property.propertyValue ?? 0,
+                    monthly: row.monthly,
+                    totalUnits: row.totalUnits,
+                    letUnits: row.letUnits,
+                  }))}
+                loading={propertiesQuery.isLoading}
+                canAdd={isSelf}
+                onAdd={() => navigate("/portfolios/new")}
+              />
+            </>
+          ) : (
+            <>
+              <Link
+                href="/portfolios"
+                className="inline-flex items-center gap-1 text-sm hover:underline"
+                style={{ color: PALETTE.muted }}
               >
-                Retry
-              </button>
-            </div>
-          ) : null}
+                <ChevronRight size={14} className="rotate-180" aria-hidden="true" /> Overview
+              </Link>
 
-          {/* Asset table */}
-          <section className={cn(DARK_CARD, "overflow-hidden")}>
-            <div
-              className={cn("hidden bg-[#1C2325] px-5 py-3 text-xs", GRID)}
-              style={{ color: PALETTE.muted }}
-            >
-              <span>Asset</span>
-              <span>Type</span>
-              <span>City</span>
-              <span className="text-right">Value</span>
-              <span className="text-right">Monthly</span>
-              <span className="text-right">Yield</span>
-              <span>Status</span>
-              <span className="sr-only">Actions</span>
-            </div>
+              {isSelf ? (
+                <button
+                  type="button"
+                  onClick={() => navigate("/portfolios/new")}
+                  className="inline-flex items-center gap-2 rounded-full bg-[#F4F4F2] px-4 py-2.5 text-sm font-semibold text-[#060A0B] md:hidden"
+                >
+                  <Plus size={16} aria-hidden="true" /> Add asset
+                </button>
+              ) : null}
 
-            {isLoading ? (
-              <div className="space-y-2 p-4">
-                {Array.from({ length: 3 }).map((_, index) => (
-                  <div key={index} className="flex items-center gap-4 py-2">
-                    <DashSkeleton className="h-12 w-14 rounded-xl" />
-                    <div className="flex-1">
-                      <DashSkeleton className="h-3.5 w-40" />
-                      <DashSkeleton className="mt-2 h-2.5 w-24" />
+              {/* Filters */}
+              <section className={cn(DARK_CARD, "space-y-4 p-4")}>
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="flex h-10 min-w-[220px] flex-1 items-center gap-2 rounded-full bg-[#1C2325] px-4">
+                    <Search size={16} style={{ color: PALETTE.muted }} aria-hidden="true" />
+                    <input
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="Search by name, city, structure or tenant…"
+                      aria-label="Search portfolio"
+                      className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#7D8287]"
+                    />
+                  </label>
+                  <select
+                    value={ownership}
+                    onChange={(event) => setOwnership(event.target.value as Ownership)}
+                    aria-label="Ownership"
+                    className={selectClass}
+                  >
+                    <option value="all">All ownership</option>
+                    <option value="company">Company-owned</option>
+                    <option value="personal">Personally owned</option>
+                  </select>
+                  {isSelf ? (
+                    <>
+                      <select
+                        value={projectFilter}
+                        onChange={(event) => setProjectFilter(event.target.value)}
+                        aria-label="Project"
+                        className={selectClass}
+                      >
+                        <option value="all">All projects</option>
+                        {projects.map((project) => (
+                          <option key={project.id} value={project.id}>
+                            {project.name}
+                          </option>
+                        ))}
+                        <option value="none">Not in a project</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={openCreateProject}
+                        className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#1C2325] px-4 text-sm text-[#F4F4F2] transition hover:bg-[#2A3134] focus-visible:outline-2 focus-visible:outline-[#A78C68]"
+                      >
+                        <Plus size={14} aria-hidden="true" /> Add to project
+                      </button>
+                    </>
+                  ) : null}
+                  <div
+                    className="flex rounded-full bg-[#1C2325] p-1"
+                    role="tablist"
+                    aria-label="Status"
+                  >
+                    {(["active", "archived"] as const).map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        role="tab"
+                        aria-selected={lifecycle === value}
+                        onClick={() => setLifecycle(value)}
+                        className={cn(pillBase, "py-1.5")}
+                        style={{ color: lifecycle === value ? PALETTE.text : PALETTE.muted }}
+                      >
+                        {value === "active" ? "Active" : "Archived"}
+                        <span className="ml-2 text-xs" style={{ color: PALETTE.muted }}>
+                          {value === "active" ? activeCount : archivedCount}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-1" role="tablist" aria-label="Property type">
+                  {TYPE_TABS.map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={typeFilter === tab.id}
+                      onClick={() => setTypeFilter(tab.id)}
+                      className={cn(
+                        pillBase,
+                        typeFilter === tab.id ? "bg-[#F4F4F2] text-[#060A0B]" : "",
+                      )}
+                      style={typeFilter === tab.id ? undefined : { color: PALETTE.text }}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {selectedProject ? (
+                  <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-[#1C2325] px-4 py-3 text-sm">
+                    <FolderKanban size={16} style={{ color: PALETTE.cyan }} aria-hidden="true" />
+                    <span className="font-semibold">{selectedProject.name}</span>
+                    <span style={{ color: PALETTE.muted }}>
+                      {selectedProjectCount}{" "}
+                      {selectedProjectCount === 1 ? "property" : "properties"} assigned
+                    </span>
+                    <div className="ml-auto flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setViewingProject(selectedProject)}
+                        className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium hover:bg-white/[0.08]"
+                      >
+                        <Eye size={14} aria-hidden="true" /> View
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openEditProject(selectedProject)}
+                        className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium hover:bg-white/[0.08]"
+                      >
+                        <Pencil size={14} aria-hidden="true" /> Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteProject(selectedProject)}
+                        className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-[#FF7A7A] hover:bg-[#FF7A7A]/10"
+                      >
+                        <Trash2 size={14} aria-hidden="true" /> Delete
+                      </button>
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : rows.length === 0 ? (
-              <div className="flex flex-col items-center px-6 py-14 text-center">
-                {hasAnyRecord ? (
-                  <Search size={32} className="mb-3 opacity-40" style={{ color: PALETTE.muted }} />
-                ) : (
-                  <Building2
-                    size={32}
-                    className="mb-3 opacity-40"
-                    style={{ color: PALETTE.muted }}
-                  />
-                )}
-                <p className="text-sm font-medium">
-                  {hasAnyRecord ? "No assets match these filters" : "No assets yet"}
-                </p>
-                {!hasAnyRecord && isSelf ? (
+                ) : null}
+              </section>
+
+              {isError ? (
+                <div
+                  role="alert"
+                  className="flex items-center justify-between gap-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-amber-900 dark:text-amber-200"
+                >
+                  <span className="flex items-center gap-2 text-sm font-medium">
+                    <AlertCircle size={16} aria-hidden="true" /> We couldn't load your portfolio.
+                  </span>
                   <button
                     type="button"
-                    onClick={() => navigate("/portfolios/new")}
-                    className="mt-4 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold"
-                    style={{ backgroundColor: PALETTE.lime, color: PALETTE.bg }}
+                    onClick={refetch}
+                    className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
                   >
-                    <Plus size={16} aria-hidden="true" /> Add your first asset
+                    Retry
                   </button>
-                ) : null}
-              </div>
-            ) : (
-              <ul>
-                {rows.map((row) => {
-                  const property = row.property;
-                  const units = unitCount(property);
-                  const href = `/properties/${property.id}`;
-                  return (
-                    <li
-                      key={property.id}
-                      className="border-b border-white/[0.06] transition-colors last:border-0 hover:bg-white/[0.02]"
-                    >
-                      <div className={cn("flex flex-col gap-3 px-4 py-4 md:px-5 md:py-4", GRID)}>
-                        <Link
-                          href={href}
-                          className="flex min-w-0 items-center gap-4 focus-visible:outline-none"
-                        >
-                          <div className="flex h-10 w-14 shrink-0 items-center justify-center rounded-xl bg-[#1C2325]">
-                            <Building2
-                              size={16}
-                              style={{ color: PALETTE.muted }}
-                              aria-hidden="true"
-                            />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold">{row.name}</p>
-                            <p className="truncate text-xs" style={{ color: PALETTE.muted }}>
-                              {ownerLabel(property)} · {units} {units === 1 ? "unit" : "units"}
-                              <span className="md:hidden">
-                                {" "}
-                                · {row.type} · {property.city || "—"}
-                              </span>
-                            </p>
-                          </div>
-                        </Link>
+                </div>
+              ) : null}
 
-                        <span className="hidden truncate text-sm md:block">{row.type}</span>
-                        <span className="hidden truncate text-sm md:block">
-                          {property.city || "—"}
-                        </span>
-                        <span className="text-sm font-semibold tabular-nums md:text-right">
-                          <span
-                            className="mr-1 text-xs font-normal md:hidden"
-                            style={{ color: PALETTE.muted }}
-                          >
-                            Value
-                          </span>
-                          {money(property.propertyValue)}
-                        </span>
-                        <span className="text-sm tabular-nums md:text-right">
-                          <span className="mr-1 text-xs md:hidden" style={{ color: PALETTE.muted }}>
-                            Monthly
-                          </span>
-                          {row.monthly > 0 ? money(row.monthly) : "—"}
-                        </span>
-                        <span className="text-sm tabular-nums md:text-right">
-                          <span className="mr-1 text-xs md:hidden" style={{ color: PALETTE.muted }}>
-                            Yield
-                          </span>
-                          {pct(row.yieldPct)}
-                        </span>
-                        <span>
-                          <StatusChip tone={row.status.tone}>{row.status.text}</StatusChip>
-                        </span>
+              {/* Asset table */}
+              <section className={cn(DARK_CARD, "overflow-hidden")}>
+                <div
+                  className={cn("hidden bg-[#1C2325] px-5 py-3 text-xs", GRID)}
+                  style={{ color: PALETTE.muted }}
+                >
+                  <span>Asset</span>
+                  <span>Type</span>
+                  <span>City</span>
+                  <span className="text-right">Value</span>
+                  <span className="text-right">Monthly</span>
+                  <span className="text-right">Yield</span>
+                  <span>Status</span>
+                  <span className="sr-only">Actions</span>
+                </div>
 
-                        <div className="flex items-center justify-end gap-1">
-                          {isSelf ? (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger
-                                aria-label={`Actions for ${row.name}`}
-                                className="rounded-full p-1.5 text-[#A3A7AB] transition hover:bg-white/[0.08] hover:text-[#F4F4F2] focus-visible:outline-2 focus-visible:outline-[#A78C68]"
-                              >
-                                <MoreHorizontal size={16} aria-hidden="true" />
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="min-w-[180px]">
-                                <DropdownMenuItem
-                                  className={MENU_ITEM}
-                                  onSelect={() => navigate(href)}
-                                >
-                                  <Eye size={14} aria-hidden="true" /> View property
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  className={MENU_ITEM}
-                                  onSelect={() => setEditingProperty(property)}
-                                >
-                                  <Pencil size={14} aria-hidden="true" /> Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  className={MENU_ITEM}
-                                  onSelect={() => setAssigningProperty(property)}
-                                >
-                                  <Link2 size={14} aria-hidden="true" /> Assign to project
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  className={cn(MENU_ITEM, "text-[#FF7A7A] focus:text-[#FF7A7A]")}
-                                  onSelect={() => setDeletingProperty(property)}
-                                >
-                                  <Trash2 size={14} aria-hidden="true" /> Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          ) : null}
-                          <Link
-                            href={href}
-                            aria-label={`Open ${row.name}`}
-                            className="rounded-full p-1.5 text-[#A3A7AB] transition hover:bg-white/[0.08] hover:text-[#F4F4F2]"
-                          >
-                            <ChevronRight size={16} aria-hidden="true" />
-                          </Link>
+                {isLoading ? (
+                  <div className="space-y-2 p-4">
+                    {Array.from({ length: 3 }).map((_, index) => (
+                      <div key={index} className="flex items-center gap-4 py-2">
+                        <DashSkeleton className="h-12 w-14 rounded-xl" />
+                        <div className="flex-1">
+                          <DashSkeleton className="h-3.5 w-40" />
+                          <DashSkeleton className="mt-2 h-2.5 w-24" />
                         </div>
                       </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </section>
+                    ))}
+                  </div>
+                ) : rows.length === 0 ? (
+                  <div className="flex flex-col items-center px-6 py-14 text-center">
+                    {hasAnyRecord ? (
+                      <Search
+                        size={32}
+                        className="mb-3 opacity-40"
+                        style={{ color: PALETTE.muted }}
+                      />
+                    ) : (
+                      <Building2
+                        size={32}
+                        className="mb-3 opacity-40"
+                        style={{ color: PALETTE.muted }}
+                      />
+                    )}
+                    <p className="text-sm font-medium">
+                      {hasAnyRecord ? "No assets match these filters" : "No assets yet"}
+                    </p>
+                    {!hasAnyRecord && isSelf ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate("/portfolios/new")}
+                        className="mt-4 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold"
+                        style={{ backgroundColor: PALETTE.lime, color: PALETTE.bg }}
+                      >
+                        <Plus size={16} aria-hidden="true" /> Add your first asset
+                      </button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <ul>
+                    {rows.map((row) => {
+                      const property = row.property;
+                      const units = unitCount(property);
+                      const href = `/properties/${property.id}`;
+                      return (
+                        <li
+                          key={property.id}
+                          className="border-b border-white/[0.06] transition-colors last:border-0 hover:bg-white/[0.02]"
+                        >
+                          <div
+                            className={cn("flex flex-col gap-3 px-4 py-4 md:px-5 md:py-4", GRID)}
+                          >
+                            <Link
+                              href={href}
+                              className="flex min-w-0 items-center gap-4 focus-visible:outline-none"
+                            >
+                              <div className="flex h-10 w-14 shrink-0 items-center justify-center rounded-xl bg-[#1C2325]">
+                                <Building2
+                                  size={16}
+                                  style={{ color: PALETTE.muted }}
+                                  aria-hidden="true"
+                                />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold">{row.name}</p>
+                                <p className="truncate text-xs" style={{ color: PALETTE.muted }}>
+                                  {ownerLabel(property)} · {units} {units === 1 ? "unit" : "units"}
+                                  <span className="md:hidden">
+                                    {" "}
+                                    · {row.type} · {property.city || "—"}
+                                  </span>
+                                </p>
+                              </div>
+                            </Link>
+
+                            <span className="hidden truncate text-sm md:block">{row.type}</span>
+                            <span className="hidden truncate text-sm md:block">
+                              {property.city || "—"}
+                            </span>
+                            <span className="text-sm font-semibold tabular-nums md:text-right">
+                              <span
+                                className="mr-1 text-xs font-normal md:hidden"
+                                style={{ color: PALETTE.muted }}
+                              >
+                                Value
+                              </span>
+                              {money(property.propertyValue)}
+                            </span>
+                            <span className="text-sm tabular-nums md:text-right">
+                              <span
+                                className="mr-1 text-xs md:hidden"
+                                style={{ color: PALETTE.muted }}
+                              >
+                                Monthly
+                              </span>
+                              {row.monthly > 0 ? money(row.monthly) : "—"}
+                            </span>
+                            <span className="text-sm tabular-nums md:text-right">
+                              <span
+                                className="mr-1 text-xs md:hidden"
+                                style={{ color: PALETTE.muted }}
+                              >
+                                Yield
+                              </span>
+                              {pct(row.yieldPct)}
+                            </span>
+                            <span>
+                              <StatusChip tone={row.status.tone}>{row.status.text}</StatusChip>
+                            </span>
+
+                            <div className="flex items-center justify-end gap-1">
+                              {isSelf ? (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger
+                                    aria-label={`Actions for ${row.name}`}
+                                    className="rounded-full p-1.5 text-[#A3A7AB] transition hover:bg-white/[0.08] hover:text-[#F4F4F2] focus-visible:outline-2 focus-visible:outline-[#A78C68]"
+                                  >
+                                    <MoreHorizontal size={16} aria-hidden="true" />
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="min-w-[180px]">
+                                    <DropdownMenuItem
+                                      className={MENU_ITEM}
+                                      onSelect={() => navigate(href)}
+                                    >
+                                      <Eye size={14} aria-hidden="true" /> View property
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      className={MENU_ITEM}
+                                      onSelect={() => setEditingProperty(property)}
+                                    >
+                                      <Pencil size={14} aria-hidden="true" /> Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      className={MENU_ITEM}
+                                      onSelect={() => setAssigningProperty(property)}
+                                    >
+                                      <Link2 size={14} aria-hidden="true" /> Assign to project
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      className={cn(
+                                        MENU_ITEM,
+                                        "text-[#FF7A7A] focus:text-[#FF7A7A]",
+                                      )}
+                                      onSelect={() => setDeletingProperty(property)}
+                                    >
+                                      <Trash2 size={14} aria-hidden="true" /> Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              ) : null}
+                              <Link
+                                href={href}
+                                aria-label={`Open ${row.name}`}
+                                className="rounded-full p-1.5 text-[#A3A7AB] transition hover:bg-white/[0.08] hover:text-[#F4F4F2]"
+                              >
+                                <ChevronRight size={16} aria-hidden="true" />
+                              </Link>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
+            </>
+          )}
         </div>
       </div>
 

@@ -21,6 +21,12 @@ export interface WorkspaceStats {
   activeTenants: number;
 }
 
+export interface BusinessWorkspaceStats {
+  // Non-archived COMPANY entities owned by the workspace owner.
+  companies: number;
+  archived: number;
+}
+
 export interface WorkspaceListEntry {
   id: string;
   type: WorkspaceType;
@@ -32,8 +38,11 @@ export interface WorkspaceListEntry {
   role: WorkspaceRole;
   permissions: AccessPermission[];
   isSelf: boolean;
-  // null for business workspaces (no business data model yet).
+  // Real-estate counts; null for business workspaces.
   stats: WorkspaceStats | null;
+  // Business counts (owner's own businesses only); absent for real estate
+  // and for business workspaces viewed by non-owners.
+  businessStats?: BusinessWorkspaceStats | null;
   createdAt: string;
 }
 

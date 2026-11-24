@@ -35,6 +35,7 @@ import { CountSelect } from "@ui/components/common/CountSelect";
 import { CountrySelect } from "@ui/components/common/CountrySelect";
 import { CityAutocomplete } from "@ui/components/common/CityAutocomplete";
 import { getCountryCode, validatePostalCode } from "@ui/data/countries";
+import { CompanyEntityPicker } from "./CompanyEntityPicker";
 
 interface AddPropertyDrawerProps {
   open: boolean;
@@ -193,7 +194,8 @@ export function AddPropertyDrawer({ open, onOpenChange }: AddPropertyDrawerProps
 
   // Stage 8: Ownership
   const [ownershipType, setOwnershipType] = useState<"individual" | "company">("individual");
-  const [companyName, setCompanyName] = useState("");
+  // Company entity the property is held through (ownershipType "company").
+  const [entityId, setEntityId] = useState("");
   const [titleDeedsStatus, setTitleDeedsStatus] = useState<"issued" | "pending">("issued");
 
   // Stage 9: Documents — picked here, uploaded AFTER the property is created.
@@ -309,7 +311,7 @@ export function AddPropertyDrawer({ open, onOpenChange }: AddPropertyDrawerProps
         if (draft.developmentCost) setDevelopmentCost(draft.developmentCost);
         if (draft.developmentYear) setDevelopmentYear(draft.developmentYear);
         if (draft.ownershipType) setOwnershipType(draft.ownershipType);
-        if (draft.companyName) setCompanyName(draft.companyName);
+        if (draft.entityId) setEntityId(draft.entityId);
         if (draft.titleDeedsStatus) setTitleDeedsStatus(draft.titleDeedsStatus);
         if (draft.activeType) setActiveType(draft.activeType);
         if (draft.buildingName) setBuildingName(draft.buildingName);
@@ -372,7 +374,7 @@ export function AddPropertyDrawer({ open, onOpenChange }: AddPropertyDrawerProps
         acquisitionYear.trim() !== "" ||
         developmentCost.trim() !== "" ||
         developmentYear.trim() !== "" ||
-        companyName.trim() !== "" ||
+        entityId !== "" ||
         photoPreview !== null;
       // Never overwrite/remove a saved draft from a blank form — that's what lets
       // Resume Draft survive a close/reopen. Just skip saving until there's content.
@@ -401,7 +403,7 @@ export function AddPropertyDrawer({ open, onOpenChange }: AddPropertyDrawerProps
         developmentCost,
         developmentYear,
         ownershipType,
-        companyName,
+        entityId,
         titleDeedsStatus,
         activeType,
         buildingName,
@@ -442,7 +444,7 @@ export function AddPropertyDrawer({ open, onOpenChange }: AddPropertyDrawerProps
     developmentCost,
     developmentYear,
     ownershipType,
-    companyName,
+    entityId,
     titleDeedsStatus,
     activeType,
     buildingName,
@@ -513,7 +515,7 @@ export function AddPropertyDrawer({ open, onOpenChange }: AddPropertyDrawerProps
       setDevelopmentYear("");
 
       setOwnershipType("individual");
-      setCompanyName("");
+      setEntityId("");
       setTitleDeedsStatus("issued");
 
       setPropertyUse("rent");
@@ -648,7 +650,8 @@ export function AddPropertyDrawer({ open, onOpenChange }: AddPropertyDrawerProps
       solarPanels: hasSolarPanels,
       storageUnit: hasStorageUnit,
       ownershipType,
-      companyName: ownershipType === "company" ? companyName || undefined : undefined,
+      // Personal → server links the owner's PERSONAL entity automatically.
+      ...(ownershipType === "company" && entityId ? { entityId } : {}),
       titleDeedsStatus,
       ...(imageUrl ? { image: imageUrl } : {}),
       // Plots have no development status (the picker is hidden for them).
@@ -878,7 +881,7 @@ export function AddPropertyDrawer({ open, onOpenChange }: AddPropertyDrawerProps
     if (addStage === 8) {
       const missing: string[] = [];
       if (!ownershipType) missing.push("ownership type");
-      if (ownershipType === "company" && !companyName.trim()) missing.push("company name");
+      if (ownershipType === "company" && !entityId) missing.push("company");
       if (!titleDeedsStatus) missing.push("title deeds status");
       return missing.length ? `Please add: ${missing.join(", ")}.` : null;
     }
@@ -1899,19 +1902,7 @@ export function AddPropertyDrawer({ open, onOpenChange }: AddPropertyDrawerProps
               </div>
 
               {ownershipType === "company" && (
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-muted-foreground ml-1">
-                    Company Name
-                  </label>
-                  <input
-                    data-testid="input-company-name"
-                    type="text"
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    placeholder="e.g. Nuleeo Holdings Ltd"
-                    className="w-full bg-background border-none rounded-xl px-4 py-2.5 text-foreground font-medium placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary/20 transition"
-                  />
-                </div>
+                <CompanyEntityPicker value={entityId} onChange={setEntityId} />
               )}
 
               <div className="space-y-3">
