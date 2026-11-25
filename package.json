@@ -23,7 +23,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:rules": "firebase emulators:exec --only firestore --project demo-olio-rules \"vitest run --config vitest.rules.config.ts\"",
-    "prepare": "husky || true"
+    "prepare": "husky || true",
+    "gcp-build": "npm run build"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.21.0",
