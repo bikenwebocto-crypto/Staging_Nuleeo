@@ -34,7 +34,13 @@
       "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -First 30; \"---app---\"; npx tsc --noEmit -p client/app/tsconfig.json 2>&1 | Select-Object -First 30)",
       "PowerShell(npx vitest run server/routes/properties.test.ts server/routes/properties.authz.test.ts server/routes/entities.test.ts 2>&1)",
       "PowerShell(npx vitest run server/routes/properties.test.ts server/routes/properties.authz.test.ts server/routes/entities.test.ts shared/entities.test.ts 2>&1)",
-      "PowerShell(npx tsc --noEmit 2>&1)"
+      "PowerShell(npx tsc --noEmit 2>&1)",
+      "PowerShell(npx tsc --noEmit -p client/app/tsconfig.json 2>&1)",
+      "PowerShell(npx tsc 2>&1)",
+      "PowerShell(foreach \\($f in 'shared/transactions.ts','server/services/transactionLedger.ts','server/routes/transactionReview.ts','server/services/rentTransaction.ts','server/routes/finance.ts','server/routes/stripeWebhook.ts'\\) { \"{0} {1}\" -f \\(Get-Content $f\\).Count, $f }; git diff --stat -- server shared | Select-Object -Last 15)",
+      "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -First 15; \"---tests---\"; npx vitest run server/routes/finance.test.ts server/routes/portfolio.test.ts server/services/prepaidActivity.test.ts shared 2>&1 | Select-Object -Last 6)",
+      "Bash(git log *)",
+      "Bash(echo \"rc=$?\")"
     ]
   }
 }

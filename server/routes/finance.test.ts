@@ -418,8 +418,8 @@ describe("POST /api/owner/transactions — portfolio stamping (phase-1 re-key)",
     propertyId: "prop1",
     amount: 850,
     type: "income",
-    category: "rent",
-    name: "June rent",
+    category: "fee",
+    name: "June late fee",
   };
 
   it("stamps the owner's existing portfolio id on the new ledger row", async () => {
@@ -461,6 +461,44 @@ describe("POST /api/owner/transactions — portfolio stamping (phase-1 re-key)",
     // …and linked the user doc (merge — the rest of the doc survives).
     expect(usersById.get("owner-uid")?.portfolioRef).toBe(pfId);
     expect(usersById.get("owner-uid")?.id).toBe("owner-uid");
+  });
+});
+
+describe("POST /api/owner/transactions — rent + company entity rules", () => {
+  const RENT = { propertyId: "prop1", amount: 850, type: "income", category: "rent", name: "Rent" };
+
+  it("rejects a manual long-term rent row (must go through the tenancy flow)", async () => {
+    seedProperty("prop1", "owner-uid");
+    const res = await request(buildApp()).post("/api/owner/transactions").send(RENT);
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("rent_via_tenancy");
+    expect(transactionsById.size).toBe(0);
+  });
+
+  it("allows manual rent on a short-term let", async () => {
+    propertiesById.set("prop1", {
+      id: "prop1",
+      ownerId: "owner-uid",
+      address: "x",
+      profile: { use: "short_term" },
+    });
+    const res = await request(buildApp()).post("/api/owner/transactions").send(RENT);
+    expect(res.status).toBe(201);
+  });
+
+  it("inherits the company entity of a company-owned property", async () => {
+    propertiesById.set("prop1", {
+      id: "prop1",
+      ownerId: "owner-uid",
+      address: "x",
+      ownershipType: "company",
+      entityId: "co-1",
+    });
+    const res = await request(buildApp())
+      .post("/api/owner/transactions")
+      .send({ ...RENT, category: "maintenance", type: "expense", name: "Plumber" });
+    expect(res.status).toBe(201);
+    expect(res.body.entityId).toBe("co-1");
   });
 });
 

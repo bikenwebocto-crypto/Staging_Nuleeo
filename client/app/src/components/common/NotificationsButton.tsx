@@ -5,6 +5,7 @@ import {
   useDeclineInvitation,
   usePendingInvitations,
   usePendingRentPayments,
+  useRejectRentPayment,
   useVerifyRentPayment,
 } from "@/lib/ownerQueries";
 import { useTenantAgreements, useRespondToAgreement } from "@/lib/tenantQueries";
@@ -47,12 +48,33 @@ export function NotificationsButton({ size = "desktop" }: { size?: "desktop" | "
   const pendingPaymentsQuery = usePendingRentPayments();
   const payments = pendingPaymentsQuery.data ?? [];
   const verifyPayment = useVerifyRentPayment();
+  const rejectPaymentMutation = useRejectRentPayment();
 
   const acting =
     acceptInvitation.isPending ||
     declineInvitation.isPending ||
     respond.isPending ||
-    verifyPayment.isPending;
+    verifyPayment.isPending ||
+    rejectPaymentMutation.isPending;
+
+  const rejectPayment = (id: string) => {
+    rejectPaymentMutation.mutate(
+      { id },
+      {
+        onSuccess: () =>
+          toast({
+            title: "Payment rejected",
+            description: "Your tenant has been told you didn't receive it.",
+          }),
+        onError: (err) =>
+          toast({
+            title: "Couldn't reject payment",
+            description: err.message || "Please try again.",
+            variant: "destructive",
+          }),
+      },
+    );
+  };
 
   const respondToAgreement = (id: string, action: "approve" | "decline") => {
     respond.mutate(
@@ -218,11 +240,13 @@ export function NotificationsButton({ size = "desktop" }: { size?: "desktop" | "
                       {p.tenantName}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      Logged a{" "}
+                      {p.category === "security_deposit" ? "Owes a " : "Logged a "}
                       <span className="font-medium">
                         {formatCurrencyTrim(p.amount, { currency: p.currency })}
                       </span>{" "}
-                      {methodLabel} rent payment
+                      {p.category === "security_deposit"
+                        ? "security deposit"
+                        : `${methodLabel} rent payment`}
                       {p.propertyAddress ? (
                         <>
                           {" "}
@@ -244,6 +268,14 @@ export function NotificationsButton({ size = "desktop" }: { size?: "desktop" | "
                   </div>
                 </div>
                 <div className="flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => rejectPayment(p.id)}
+                    disabled={acting}
+                    className={declineBtnClass}
+                  >
+                    <X size={14} />
+                    Reject
+                  </button>
                   <button
                     onClick={() => confirmPayment(p.id)}
                     disabled={acting}

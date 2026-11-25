@@ -19,6 +19,7 @@ interface OwnerPropertyOption {
   unitCount?: number;
   occupied?: boolean;
   propertyUse?: "hold" | "rent" | "owner_occupied";
+  propertyType?: string;
 }
 
 interface AddTenantDrawerProps {
@@ -47,7 +48,11 @@ export function AddTenantDrawer({ open, onOpenChange, propertyAddress }: AddTena
   // 409s on it), so keep both out of the picker — the only addable target is a
   // rented (or unset) VACANT property. Mirrors the gating on the property pages.
   const selectableProperties = ownerProperties.filter(
-    (p) => p.propertyUse !== "hold" && p.propertyUse !== "owner_occupied" && !p.occupied,
+    (p) =>
+      p.propertyUse !== "hold" &&
+      p.propertyUse !== "owner_occupied" &&
+      p.propertyType !== "Building" &&
+      !p.occupied,
   );
 
   const addStageMeta = [

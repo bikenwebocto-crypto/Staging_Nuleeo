@@ -4,6 +4,8 @@ import {
   useOwnerTenants,
   useOwnerProperties,
   useSettleTenantBalance,
+  useRecordTenantRent,
+  useReturnDeposit,
   type OwnerTenant as Tenant,
 } from "@/lib/ownerQueries";
 import { useActivePortfolio } from "@/lib/activePortfolio";
@@ -78,6 +80,61 @@ export default function TenantsPage() {
           variant: "destructive",
         }),
     });
+  };
+
+  // Rent received off-platform → booked against the lease (advances the
+  // schedule). Replaces the old free-form "Rent Payment" activity.
+  const recordRent = useRecordTenantRent();
+  const handleRecordRent = (tenant: Tenant) => {
+    const raw = window.prompt(
+      `Rent received from ${tenant.name} (EUR):`,
+      String(tenant.rentAmount ?? ""),
+    );
+    if (raw === null) return;
+    const amount = Number(raw.replace(",", "."));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast({ title: "Enter a valid amount", variant: "destructive" });
+      return;
+    }
+    recordRent.mutate(
+      { tenancyId: tenant.id, amount },
+      {
+        onSuccess: () =>
+          toast({ title: "Rent recorded", description: "The lease schedule moved on." }),
+        onError: (err) =>
+          toast({
+            title: "Couldn't record rent",
+            description: parseApiError(err, "Please try again."),
+            variant: "destructive",
+          }),
+      },
+    );
+  };
+
+  // Security deposit handed back after the tenancy ended (0 = kept in full).
+  const returnDeposit = useReturnDeposit();
+  const handleReturnDeposit = (tenant: Tenant) => {
+    const raw = window.prompt(
+      `Deposit amount returned to ${tenant.name} (EUR, 0 if kept in full):`,
+    );
+    if (raw === null) return;
+    const amount = Number(raw.replace(",", "."));
+    if (!Number.isFinite(amount) || amount < 0) {
+      toast({ title: "Enter a valid amount", variant: "destructive" });
+      return;
+    }
+    returnDeposit.mutate(
+      { tenancyId: tenant.id, amount },
+      {
+        onSuccess: () => toast({ title: "Deposit return recorded" }),
+        onError: (err) =>
+          toast({
+            title: "Couldn't record deposit return",
+            description: parseApiError(err, "Please try again."),
+            variant: "destructive",
+          }),
+      },
+    );
   };
 
   // Starts (or fetches the existing) conversation with a tenant and routes
@@ -318,6 +375,34 @@ export default function TenantsPage() {
                         </button>
                       ) : (
                         <span className="text-[10px] text-muted-foreground">Review pending</span>
+                      )}
+                      {isSelf && tenant.status === "active" && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRecordRent(tenant);
+                          }}
+                          disabled={recordRent.isPending}
+                          title="Record rent you received directly (cash / transfer)"
+                          className="mt-1 text-[10px] font-semibold text-primary hover:underline disabled:opacity-50"
+                        >
+                          Record rent
+                        </button>
+                      )}
+                      {isSelf && tenant.status === "expired" && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleReturnDeposit(tenant);
+                          }}
+                          disabled={returnDeposit.isPending}
+                          title="Record the security deposit you returned"
+                          className="mt-1 text-[10px] font-semibold text-primary hover:underline disabled:opacity-50"
+                        >
+                          Return deposit
+                        </button>
                       )}
                     </div>
                   </div>

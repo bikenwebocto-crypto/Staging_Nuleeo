@@ -1727,13 +1727,19 @@ export interface Tenant {
   name: string;
   email: string;
   phone?: string;
-  unitId: string; // Unit.id
+  // Unit.id. For owner-created tenancies this EQUALS propertyId: every rentable
+  // space (incl. each building unit, see POST /api/properties/:id/units) is its
+  // own Property doc, so no separate Unit row exists.
+  unitId: string;
   propertyId: string; // Property.id (denormalized for admin queries)
   ownerId: string; // User.id
   // Stable portfolio this tenancy belongs to (Portfolio.id — survives an
   // owner transfer, unlike ownerId). Stamped on creation; legacy rows
   // backfilled by script/stampPortfolioIds.ts.
   portfolioId?: string;
+  // COMPANY entity the property is held through (absent for personally held
+  // properties). Copied from Property.entityId so the company ledger sees it.
+  entityId?: string;
   rentAmount: number;
   status: TenantStatus;
   // Cleared to `null` by the end-tenancy handler (portfolio.ts) when the
@@ -1859,13 +1865,15 @@ export interface RentIndexationLog {
 export interface Agreement {
   id: string;
   tenantId: string;
-  unitId: string;
+  unitId: string; // === propertyId for owner-created leases (see Tenant.unitId)
   propertyId: string;
   ownerId: string;
   // Stable portfolio this lease belongs to (Portfolio.id — survives an owner
   // transfer, unlike ownerId). Stamped on creation; legacy rows backfilled by
   // script/stampPortfolioIds.ts.
   portfolioId?: string;
+  // COMPANY entity the property is held through (see Tenant.entityId).
+  entityId?: string;
   // Reserved / not yet enforced: no route currently writes or reads this, and
   // the "active" transition does NOT gate on it. Kept as a placeholder for a
   // future payment-method precondition.
@@ -2083,7 +2091,10 @@ export type TxPaymentMethod =
   | "check"
   | "other";
 
-export type TransactionStatus = "completed" | "pending" | "failed" | "resolved";
+// "rejected" — the owner declined a tenant-logged offline payment (the money
+// never arrived / the log was wrong). Terminal; excluded from every income
+// reader, which only count "completed".
+export type TransactionStatus = "completed" | "pending" | "failed" | "resolved" | "rejected";
 
 // How a Transaction came into being. "manual" rows are owner-recorded ledger
 // entries (RecordActivityDialog); "rent" + the absent/legacy case are system-
@@ -2159,6 +2170,7 @@ export type TransactionAuditAction =
   | "created"
   | "updated"
   | "verified"
+  | "rejected"
   | "classified"
   | "reconciled"
   | "refund_recorded"
@@ -2254,6 +2266,10 @@ export interface Transaction {
   feeRefundedCents?: number;
   verifiedAt?: string;
   verifiedBy?: string; // owner User.id
+  // Set by POST /api/owner/payment/reject/:id (status → "rejected").
+  rejectedAt?: string;
+  rejectedBy?: string; // owner User.id
+  rejectReason?: string;
   // For tenant-reported maintenance issues (neutral/maintenance rows): when the
   // owner marked the report fixed, and which owner did it. Absent until the
   // status moves to "resolved".

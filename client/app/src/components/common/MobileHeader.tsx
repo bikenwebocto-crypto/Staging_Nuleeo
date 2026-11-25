@@ -36,6 +36,7 @@ import {
   useDeclineInvitation,
   usePendingInvitations,
   usePendingRentPayments,
+  useRejectRentPayment,
   useVerifyRentPayment,
 } from "@/lib/ownerQueries";
 import { useTenantAgreements, useRespondToAgreement } from "@/lib/tenantQueries";
@@ -103,12 +104,33 @@ export function MobileHeader() {
   const pendingPaymentsQuery = usePendingRentPayments();
   const payments = pendingPaymentsQuery.data ?? [];
   const verifyPayment = useVerifyRentPayment();
+  const rejectPaymentMutation = useRejectRentPayment();
 
   const acting =
     acceptInvitation.isPending ||
     declineInvitation.isPending ||
     respond.isPending ||
-    verifyPayment.isPending;
+    verifyPayment.isPending ||
+    rejectPaymentMutation.isPending;
+
+  const rejectPayment = (id: string) => {
+    rejectPaymentMutation.mutate(
+      { id },
+      {
+        onSuccess: () =>
+          toast({
+            title: "Payment rejected",
+            description: "Your tenant has been told you didn't receive it.",
+          }),
+        onError: (err) =>
+          toast({
+            title: "Couldn't reject payment",
+            description: err.message || "Please try again.",
+            variant: "destructive",
+          }),
+      },
+    );
+  };
   const notificationsCount = pendingAgreements.length + invitations.length + payments.length;
 
   const respondToAgreement = (id: string, action: "approve" | "decline") => {
@@ -369,11 +391,13 @@ export function MobileHeader() {
                                 {p.tenantName}
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                Logged a{" "}
+                                {p.category === "security_deposit" ? "Owes a " : "Logged a "}
                                 <span className="font-medium">
                                   {formatCurrencyTrim(p.amount, { currency: p.currency })}
                                 </span>{" "}
-                                {methodLabel} rent payment
+                                {p.category === "security_deposit"
+                                  ? "security deposit"
+                                  : `${methodLabel} rent payment`}
                                 {p.propertyAddress ? (
                                   <>
                                     {" "}
@@ -395,6 +419,14 @@ export function MobileHeader() {
                             </div>
                           </div>
                           <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => rejectPayment(p.id)}
+                              disabled={acting}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-border text-muted-foreground hover:text-foreground hover:bg-secondary transition disabled:opacity-50"
+                            >
+                              <XIcon size={14} />
+                              Reject
+                            </button>
                             <button
                               onClick={() => confirmPayment(p.id)}
                               disabled={acting}

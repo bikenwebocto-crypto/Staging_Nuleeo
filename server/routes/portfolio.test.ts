@@ -312,6 +312,18 @@ vi.mock("../services/portfolioBanking", () => ({
     ownerId: currentUser.uid,
     createdAt: "2026-01-01T00:00:00.000Z",
   }),
+  // Tenancy mutations gate on the caller's portfolio. Seeded tenancies carry no
+  // portfolioId unless a test sets one, so they fall back to ownerId.
+  getPortfolio: async () => ({
+    id: "pf-test",
+    ownerId: currentUser.uid,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  }),
+  callerOwnsTenancy: (
+    t: { portfolioId?: string; ownerId: string },
+    uid: string,
+    pfId: string | undefined,
+  ) => (t.portfolioId ? !!pfId && pfId === t.portfolioId : t.ownerId === uid),
 }));
 
 // The GET endpoints resolve their scope through resolveOwnerScope; stub it
@@ -366,6 +378,28 @@ const VALID_BODY = {
 // ──────────────────────────────────────────────────────────────────────
 
 describe("POST /api/owner/agreements", () => {
+  it("refuses a tenant on a Building parent (its units take the tenants)", async () => {
+    seedProperty("prop1", "owner-uid");
+    propertiesById.set("prop1", { ...propertiesById.get("prop1"), propertyType: "Building" });
+    const res = await request(buildApp()).post("/api/owner/agreements").send(VALID_BODY);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/units/i);
+    expect(tenantsById.size).toBe(0);
+  });
+
+  it("stamps the company entity on tenancy + agreement for a company-owned property", async () => {
+    seedProperty("prop1", "owner-uid");
+    propertiesById.set("prop1", {
+      ...propertiesById.get("prop1"),
+      ownershipType: "company",
+      entityId: "co-1",
+    });
+    const res = await request(buildApp()).post("/api/owner/agreements").send(VALID_BODY);
+    expect(res.status).toBe(201);
+    expect(tenantsById.get(res.body.tenantId)?.entityId).toBe("co-1");
+    expect(agreementsById.get(res.body.agreementId)?.entityId).toBe("co-1");
+  });
+
   it("creates a tenancy with userId=undefined + status='invited' when the tenant has no Auth account", async () => {
     seedProperty("prop1", "owner-uid");
     // authUsersByEmail is empty → getUserByEmail throws auth/user-not-found.

@@ -268,6 +268,141 @@ export function useOwnerInsightsTransactions() {
   });
 }
 
+// Full ledger for the Transactions page: a wide date window (server caps
+// sinceDays at 1000) so imported/pending rows and history all show.
+export function useOwnerLedgerTransactions() {
+  const { firebaseUser } = useAuth();
+  const { activeOwnerId, activePortfolioDocId, isSelf } = useActivePortfolio();
+  const url = withOwnerScope(
+    "/api/owner/transactions?sinceDays=1000",
+    activeOwnerId,
+    isSelf,
+    activePortfolioDocId,
+  );
+  return useQuery<OwnerTransaction[]>({ queryKey: [url], enabled: !!firebaseUser });
+}
+
+export interface BankMovementUpload {
+  date: string;
+  amount: number;
+  description: string;
+  currency?: string;
+}
+
+export interface TransactionImportResult {
+  id: string;
+  rowCount: number;
+  importedCount: number;
+  duplicateCount: number;
+  failedCount: number;
+  matchedCount: number;
+  alreadyImportedCount: number;
+}
+
+// Server accepts ≤240 movements per import (one atomic batch), so larger
+// statements are sent in chunks and the counts summed.
+const IMPORT_CHUNK = 240;
+
+export function useImportTransactions() {
+  const qc = useQueryClient();
+  return useMutation<
+    TransactionImportResult,
+    Error,
+    { movements: BankMovementUpload[]; name?: string; bankAccountId?: string }
+  >({
+    mutationFn: async ({ movements, name, bankAccountId }) => {
+      const total: TransactionImportResult = {
+        id: "",
+        rowCount: 0,
+        importedCount: 0,
+        duplicateCount: 0,
+        failedCount: 0,
+        matchedCount: 0,
+        alreadyImportedCount: 0,
+      };
+      for (let i = 0; i < movements.length; i += IMPORT_CHUNK) {
+        const res = await apiRequest("POST", "/api/owner/transactions/import", {
+          movements: movements.slice(i, i + IMPORT_CHUNK),
+          ...(name ? { name } : {}),
+          ...(bankAccountId ? { bankAccountId } : {}),
+        });
+        const r = (await res.json()) as TransactionImportResult;
+        total.id = r.id;
+        total.rowCount += r.rowCount;
+        total.importedCount += r.importedCount;
+        total.duplicateCount += r.duplicateCount;
+        total.failedCount += r.failedCount;
+        total.matchedCount += r.matchedCount ?? 0;
+        total.alreadyImportedCount += r.alreadyImportedCount ?? 0;
+      }
+      return total;
+    },
+    onSettled: () => {
+      invalidateLedger(qc);
+      qc.invalidateQueries({ queryKey: ["/api/owner/reconciliation"] });
+    },
+  });
+}
+
+export interface ReviewTransactionInput {
+  id: string;
+  action: "approve" | "reject";
+  type?: "income" | "expense";
+  category?: TransactionCategory;
+  propertyId?: string;
+  reason?: string;
+}
+
+export function useReviewTransaction() {
+  const qc = useQueryClient();
+  return useMutation<Transaction, Error, ReviewTransactionInput>({
+    mutationFn: async ({ id, ...body }) =>
+      (await apiRequest("POST", `/api/owner/transactions/${id}/review`, body)).json(),
+    onSettled: () => invalidateLedger(qc),
+  });
+}
+
+export interface OwnerReconciliationMatch {
+  id: string;
+  transactionId: string;
+  bankAccountId: string;
+  amount: number;
+  currency: string;
+  confidence?: number;
+  status: "suggested" | "approved" | "rejected";
+  movement?: BankMovementUpload;
+  createdAt: string;
+}
+
+export function useOwnerReconciliation() {
+  const { firebaseUser } = useAuth();
+  return useQuery<OwnerReconciliationMatch[]>({
+    queryKey: ["/api/owner/reconciliation"],
+    enabled: !!firebaseUser,
+  });
+}
+
+export function useResolveReconciliation() {
+  const qc = useQueryClient();
+  return useMutation<{ ok: true }, Error, { matchId: string; action: "approve" | "reject" }>({
+    mutationFn: async ({ matchId, action }) =>
+      (await apiRequest("POST", `/api/owner/reconciliation/${matchId}`, { action })).json(),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["/api/owner/reconciliation"] });
+      invalidateLedger(qc);
+    },
+  });
+}
+
+// Ledger keys carry query strings (?sinceDays=…, ?portfolioId=…), so a plain
+// prefix key wouldn't match them — invalidate every transactions URL.
+function invalidateLedger(qc: ReturnType<typeof useQueryClient>) {
+  return qc.invalidateQueries({
+    predicate: (q) =>
+      typeof q.queryKey[0] === "string" && q.queryKey[0].startsWith("/api/owner/transactions"),
+  });
+}
+
 export function useOwnerAgreements() {
   const { firebaseUser } = useAuth();
   const { activeOwnerId, activePortfolioDocId, isSelf } = useActivePortfolio();
@@ -454,6 +589,8 @@ export interface PendingRentPayment {
   tenantName: string;
   proofUrl: string | null;
   notes: string | null;
+  // "rent" (tenant-logged) or "security_deposit" (booked on lease approval).
+  category?: "rent" | "security_deposit";
 }
 
 export function usePendingRentPayments() {
@@ -485,6 +622,56 @@ export function useVerifyRentPayment() {
       qc.invalidateQueries({ queryKey: ["/api/owner/transactions"] });
       qc.invalidateQueries({ queryKey: ["/api/owner/tenants"] });
       qc.invalidateQueries({ queryKey: ["/api/owner/summary"] });
+    },
+  });
+}
+
+// Owner says a tenant-logged offline payment (or a pending deposit) never
+// arrived. Server flips it to "rejected"; the rent cycle is not advanced.
+export function useRejectRentPayment() {
+  const qc = useQueryClient();
+  return useMutation<void, Error, { id: string; reason?: string }>({
+    mutationFn: async ({ id, reason }) => {
+      await apiRequest("POST", `/api/owner/payment/reject/${id}`, reason ? { reason } : {});
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/owner/payments/pending"] });
+      qc.invalidateQueries({ queryKey: ["/api/owner/transactions"] });
+      qc.invalidateQueries({ queryKey: ["/api/owner/tenants"] });
+    },
+  });
+}
+
+// Owner records rent received off-platform for an active tenancy. Books it as
+// completed and advances the lease (replaces a free-form "Rent" ledger row).
+export function useRecordTenantRent() {
+  const qc = useQueryClient();
+  return useMutation<
+    void,
+    Error,
+    { tenancyId: string; amount: number; method?: string; paidAt?: string; notes?: string }
+  >({
+    mutationFn: async ({ tenancyId, ...body }) => {
+      await apiRequest("POST", `/api/owner/tenants/${tenancyId}/record-payment`, body);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/owner/transactions"] });
+      qc.invalidateQueries({ queryKey: ["/api/owner/tenants"] });
+      qc.invalidateQueries({ queryKey: ["/api/owner/summary"] });
+    },
+  });
+}
+
+// Owner returns (all or part of) the security deposit after the tenancy ends.
+export function useReturnDeposit() {
+  const qc = useQueryClient();
+  return useMutation<void, Error, { tenancyId: string; amount: number; notes?: string }>({
+    mutationFn: async ({ tenancyId, ...body }) => {
+      await apiRequest("POST", `/api/owner/tenants/${tenancyId}/deposit-return`, body);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/owner/transactions"] });
+      qc.invalidateQueries({ queryKey: ["/api/owner/tenants"] });
     },
   });
 }

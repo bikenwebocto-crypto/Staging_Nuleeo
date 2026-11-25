@@ -137,7 +137,14 @@ export default function AddAssetPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
-  const [created, setCreated] = useState<{ id: string; name: string; units: number } | null>(null);
+  // `failures` lists the follow-up steps that didn't save (ownership, use,
+  // units, tenant) so the success screen can offer to finish them.
+  const [created, setCreated] = useState<{
+    id: string;
+    name: string;
+    units: number;
+    failures: string[];
+  } | null>(null);
   const [touched, setTouched] = useState(false);
 
   // Step 1
@@ -233,6 +240,10 @@ export default function AddAssetPage() {
         if (!((parseMoney(t.rent) ?? 0) > 0)) e.rent = "Enter the monthly rent.";
         if (!t.start) e.start = "Enter the lease start.";
         if (t.end && t.start && t.end <= t.start) e.end = "Lease end must be after the start.";
+        // Under a month rounds to 0, which the API would silently turn into a
+        // 12-month default — make the owner pick a real term instead.
+        else if (t.end && t.start && !monthsBetween(t.start, t.end))
+          e.end = "Leases must run at least one month.";
       }
     }
     if (step === 3 && isBuilding) {
@@ -404,9 +415,14 @@ export default function AddAssetPage() {
           });
         } catch (err) {
           failures.push("tenant");
+          // Same payout gate AddTenantPage handles: point the owner at Banking
+          // instead of a generic failure.
+          const noPayout = String((err as Error)?.message ?? "").includes("no_payment_method");
           toast({
             title: "Tenant not added",
-            description: parseApiError(err, "You can add them from Tenants."),
+            description: noPayout
+              ? "Add a payout method (Settings → Banking) so your tenant can pay rent, then add the tenant from Finish setup."
+              : parseApiError(err, "You can add them from Finish setup."),
             variant: "destructive",
           });
         }
@@ -422,7 +438,7 @@ export default function AddAssetPage() {
         description: "Some details didn't save. Finish them in Complete profile.",
       });
     setSubmitting(false);
-    setCreated({ id: propertyId, name: name.trim(), units: unitsCreated });
+    setCreated({ id: propertyId, name: name.trim(), units: unitsCreated, failures });
   };
 
   if (!isSelf) {
@@ -506,6 +522,47 @@ export default function AddAssetPage() {
                   ? `${created.name} and its ${created.units} units are now in your portfolio.`
                   : `${created.name} is now in your portfolio.`}
               </p>
+              {created.failures.length > 0 && (
+                <div className="mt-8 w-full max-w-sm rounded-2xl border border-border p-4 text-left">
+                  <p className="text-sm font-semibold text-foreground">Finish setup</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Some steps didn't save. Pick up where you left off:
+                  </p>
+                  <ul className="mt-3 space-y-2 text-sm">
+                    {(created.failures.includes("ownership") ||
+                      created.failures.includes("use")) && (
+                      <li>
+                        <Link
+                          href={`/properties/${created.id}/profile`}
+                          className="text-primary hover:underline"
+                        >
+                          Complete the property profile
+                        </Link>
+                      </li>
+                    )}
+                    {created.failures.includes("units") && (
+                      <li>
+                        <Link
+                          href={`/properties/${created.id}`}
+                          className="text-primary hover:underline"
+                        >
+                          Add the building's units
+                        </Link>
+                      </li>
+                    )}
+                    {created.failures.includes("tenant") && (
+                      <li>
+                        <Link
+                          href="/owner/tenants_leases/new"
+                          className="text-primary hover:underline"
+                        >
+                          Add the tenant
+                        </Link>
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
               <Link href={`/properties/${created.id}`} className="mt-12 font-medium">
                 Open asset
               </Link>

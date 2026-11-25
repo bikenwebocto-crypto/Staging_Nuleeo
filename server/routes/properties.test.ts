@@ -540,6 +540,8 @@ vi.mock("../services/propertyOwnership", () => ({
   })),
   loadOwnedEntity: vi.fn(async () => null),
   ensurePersonalEntity: vi.fn(),
+  countsTowardUnitCap: (p: { status?: string; propertyType?: string }) =>
+    p.status !== "inactive" && p.propertyType !== "Building",
 }));
 
 // safeRedirect.isPublicHttpsUrl is only used to validate the `image`

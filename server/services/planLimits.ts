@@ -45,11 +45,18 @@ export async function resolveUnitCap(ownerUid: string): Promise<UnitCapInfo> {
   let used = 0;
   if (portfolio) {
     const propsCol = db().collection(COL.properties).where("portfolioId", "==", portfolio.id);
-    const [total, inactive] = await Promise.all([
+    // Building parents don't take a slot either (their units do) — see
+    // countsTowardUnitCap in services/propertyOwnership.ts, which the
+    // in-transaction recounts use. Equality-only filters → no composite index.
+    const buildings = propsCol.where("propertyType", "==", "Building");
+    const [total, inactive, buildingTotal, buildingInactive] = await Promise.all([
       propsCol.count().get(),
       propsCol.where("status", "==", "inactive").count().get(),
+      buildings.count().get(),
+      buildings.where("status", "==", "inactive").count().get(),
     ]);
-    used = Math.max(0, total.data().count - inactive.data().count);
+    const activeBuildings = buildingTotal.data().count - buildingInactive.data().count;
+    used = Math.max(0, total.data().count - inactive.data().count - activeBuildings);
   }
   // Privilege override — Business (and anyone an admin grants
   // units.unlimited via the matrix) skips the cap entirely.

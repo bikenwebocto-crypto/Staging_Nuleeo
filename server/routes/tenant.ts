@@ -20,12 +20,18 @@ import { isSafeRedirectUrl } from "../services/safeRedirect";
 import { computeRentCommission } from "../services/commission";
 import { recordRentTransactionFromSession } from "../services/rentTransaction";
 import { advanceAgreementForPayment, monthsPerPeriod } from "../services/rentCycle";
-import { ensurePortfolio, getPortfolio, loadPortfolioBanking } from "../services/portfolioBanking";
+import {
+  callerOwnsTenancy,
+  ensurePortfolio,
+  getPortfolio,
+  loadPortfolioBanking,
+} from "../services/portfolioBanking";
+import { resolvePropertyEntityId } from "../services/propertyOwnership";
 import { nextIncreaseDateOnOrAfter } from "../services/leaseDates";
 import { prepaidRentActivityRow } from "../services/prepaidActivity";
 import { reqStr } from "../util";
 import { logWarn } from "../services/log";
-import { recordAudit } from "../services/transactionLedger";
+import { auditInTransaction, recordAudit } from "../services/transactionLedger";
 import { workspaceIdFor } from "../../shared/transactions";
 import { isRealizedRent } from "../../shared/realizedRent";
 import { derivePaymentStatus } from "../../shared/paymentStatus";
@@ -653,6 +659,8 @@ export function registerTenantRoutes(app: Express): void {
     // record belongs to the owner, so resolve by ctx.tenant.ownerId — never
     // the calling tenant.
     const pf = await ensurePortfolio(ctx.tenant.ownerId);
+    // Company that holds the property (legacy tenancies predate the stamp).
+    const entityId = ctx.tenant.entityId ?? (await resolvePropertyEntityId(ctx.tenant.propertyId));
 
     const tx: Transaction = {
       id: ref.id,
@@ -665,6 +673,7 @@ export function registerTenantRoutes(app: Express): void {
       ...(agreement?.id ? { agreementId: agreement.id } : {}),
       ownerId: ctx.tenant.ownerId,
       portfolioId: pf.id,
+      ...(entityId ? { entityId } : {}),
       name: "Rent Payment",
       amount,
       currency: "EUR",
@@ -762,58 +771,76 @@ export function registerTenantRoutes(app: Express): void {
       if (!callerOwnsTx) {
         return res.status(403).json({ error: "Not your transaction" });
       }
-      if (tx.category !== "rent") {
-        return res.status(400).json({ error: "Only rent transactions can be verified here" });
+      // Rent, or the security deposit the lease activation booked as pending.
+      const isDeposit = tx.category === "security_deposit";
+      if (tx.category !== "rent" && !isDeposit) {
+        return res
+          .status(400)
+          .json({ error: "Only rent or deposit payments can be verified here" });
       }
-      if (tx.status === "completed") {
-        // Already verified — return current state without re-notifying.
-        return res.json(tx);
-      }
-
-      // Per-cycle double-book guard. Two distinct pending offline logs for the
-      // SAME lease + cycle (the offline dedupe id keys on amount, so an exact
-      // log and an over-payment produce two rows), or an offline log for a
-      // cycle a card payment already settled, would otherwise BOTH be flipped
-      // to completed income and double-count that cycle's realized rent in an
-      // append-only ledger. Before completing, refuse if a completed rent
-      // payment already exists for this tenancy + cycle. Only cycle-tagged rows
-      // are guarded (legacy rows without rentPeriod fall through unchanged); the
-      // tenantId + rentPeriod query is equality-only, so no composite index.
-      if (tx.rentPeriod && tx.tenantId) {
-        const cycleSnap = await db()
-          .collection(COL.transactions)
-          .where("tenantId", "==", tx.tenantId)
-          .where("rentPeriod", "==", tx.rentPeriod)
-          .get();
-        const cycleAlreadyPaid = cycleSnap.docs.some((d) => {
-          if (d.id === txId) return false;
-          const other = d.data() as Transaction;
-          return other.category === "rent" && other.status === "completed";
-        });
-        if (cycleAlreadyPaid) {
-          return res.status(409).json({
-            error: "A rent payment for this cycle has already been verified.",
-            code: "cycle_already_paid",
-          });
-        }
+      if (tx.status === "rejected") {
+        return res.status(409).json({ error: "This payment was rejected and can't be verified." });
       }
 
+      // Check + flip in ONE transaction. Per-cycle double-book guard: two
+      // distinct pending offline logs for the SAME lease + cycle (the offline
+      // dedupe id keys on amount), or an offline log for a cycle a card payment
+      // already settled, would otherwise BOTH become completed income. Doing
+      // the cycle query and the write in a transaction means two concurrent
+      // verifies of sibling rows can't both pass the check — Firestore's query
+      // conflict detection retries the loser, which then sees the winner.
+      // Only cycle-tagged rent rows are guarded (legacy rows fall through);
+      // tenantId + rentPeriod is equality-only, so no composite index.
       const verifiedAt = new Date().toISOString();
-      await ref.set({ status: "completed", verifiedAt, verifiedBy: uid }, { merge: true });
+      const outcome = await db().runTransaction(async (t) => {
+        const fresh = await t.get(ref);
+        const cur = fresh.data() as Transaction;
+        if (cur.status === "completed") return { kind: "already" as const, tx: cur };
+        if (cur.status === "rejected") return { kind: "rejected" as const };
+        if (!isDeposit && cur.rentPeriod && cur.tenantId) {
+          const cycleSnap = await t.get(
+            db()
+              .collection(COL.transactions)
+              .where("tenantId", "==", cur.tenantId)
+              .where("rentPeriod", "==", cur.rentPeriod),
+          );
+          const cycleAlreadyPaid = cycleSnap.docs.some((d) => {
+            if (d.id === txId) return false;
+            const other = d.data() as Transaction;
+            return other.category === "rent" && other.status === "completed";
+          });
+          if (cycleAlreadyPaid) return { kind: "cycle_paid" as const };
+        }
+        t.set(ref, { status: "completed", verifiedAt, verifiedBy: uid }, { merge: true });
+        auditInTransaction(t, {
+          transactionId: txId,
+          action: "verified",
+          actorId: uid,
+          actorType: "owner",
+          before: { status: cur.status },
+          after: { status: "completed" },
+        });
+        return { kind: "verified" as const };
+      });
+      if (outcome.kind === "already") {
+        // Already verified — return current state without re-notifying.
+        return res.json(outcome.tx);
+      }
+      if (outcome.kind === "rejected") {
+        return res.status(409).json({ error: "This payment was rejected and can't be verified." });
+      }
+      if (outcome.kind === "cycle_paid") {
+        return res.status(409).json({
+          error: "A rent payment for this cycle has already been verified.",
+          code: "cycle_already_paid",
+        });
+      }
       const updated = {
         ...tx,
         status: "completed" as const,
         verifiedAt,
         verifiedBy: uid,
       };
-      await recordAudit({
-        transactionId: txId,
-        action: "verified",
-        actorId: uid,
-        actorType: "owner",
-        before: { status: tx.status },
-        after: { status: "completed" },
-      });
 
       // Roll the rent cycle forward via the shared helper — frequency-aware
       // (quarterly/yearly leases advance a whole period, not one month) and
@@ -824,8 +851,8 @@ export function registerTenantRoutes(app: Express): void {
       // Best-effort: a bookkeeping error must not fail the verification the
       // owner just performed; the next cron run catches up, and it's logged
       // (parity with the Stripe path) so a stuck cycle is observable.
-      // `tx.category === "rent"` is already guaranteed above.
-      if (tx.tenantId) {
+      // A deposit isn't a rent cycle — never advance the schedule for it.
+      if (tx.tenantId && !isDeposit) {
         try {
           await advanceAgreementForPayment({
             tenantId: tx.tenantId,
@@ -856,8 +883,10 @@ export function registerTenantRoutes(app: Express): void {
               await notifyUser({
                 externalUserId: tenancy.userId,
                 category: "rentPayments",
-                title: "Rent payment confirmed",
-                message: `Your landlord confirmed receipt of your ${amountStr} rent payment.`,
+                title: isDeposit ? "Deposit received" : "Rent payment confirmed",
+                message: `Your landlord confirmed receipt of your ${amountStr} ${
+                  isDeposit ? "security deposit" : "rent payment"
+                }.`,
                 url: "https://app.oliowallet.com/tenant",
               });
             }
@@ -870,6 +899,316 @@ export function registerTenantRoutes(app: Express): void {
       res.json(updated);
     } catch (err: unknown) {
       res.status(500).json({ error: errMsg(err, "Failed to verify payment") });
+    }
+  });
+
+  // POST /api/owner/payment/reject/:id — the owner says a tenant-logged
+  // offline payment never arrived (or was logged wrong). Flips pending →
+  // "rejected" (terminal; income readers only count "completed"), so it stops
+  // sitting in the owner's pending queue forever. The rent cycle is NOT
+  // advanced — the tenant still owes that period and can log it again.
+  // Body: { reason?: string }.
+  app.post("/api/owner/payment/reject/:id", requireAuth, async (req, res) => {
+    const { uid } = req.user!;
+    const txId = reqStr(req.params.id);
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const reason =
+      typeof body.reason === "string" ? body.reason.trim().slice(0, 300) || undefined : undefined;
+    try {
+      const ref = db().collection(COL.transactions).doc(txId);
+      const callerPortfolio = await getPortfolio(uid);
+      const rejectedAt = new Date().toISOString();
+      const outcome = await db().runTransaction(async (t) => {
+        const snap = await t.get(ref);
+        if (!snap.exists) return { code: 404 as const };
+        const tx = snap.data() as Transaction;
+        if (!tx.portfolioId || callerPortfolio?.id !== tx.portfolioId)
+          return { code: 403 as const };
+        if (tx.category !== "rent" && tx.category !== "security_deposit")
+          return { code: 400 as const };
+        if (tx.status === "rejected") return { code: 200 as const, tx, changed: false };
+        if (tx.status !== "pending") return { code: 409 as const };
+        t.set(
+          ref,
+          {
+            status: "rejected",
+            rejectedAt,
+            rejectedBy: uid,
+            ...(reason ? { rejectReason: reason } : {}),
+          },
+          { merge: true },
+        );
+        auditInTransaction(t, {
+          transactionId: txId,
+          action: "rejected",
+          actorId: uid,
+          actorType: "owner",
+          before: { status: tx.status },
+          after: { status: "rejected", ...(reason ? { reason } : {}) },
+        });
+        return {
+          code: 200 as const,
+          changed: true,
+          tx: {
+            ...tx,
+            status: "rejected" as const,
+            rejectedAt,
+            rejectedBy: uid,
+            ...(reason ? { rejectReason: reason } : {}),
+          },
+        };
+      });
+      if (outcome.code === 404) return res.status(404).json({ error: "Transaction not found" });
+      if (outcome.code === 403) return res.status(403).json({ error: "Not your transaction" });
+      if (outcome.code === 400)
+        return res.status(400).json({ error: "Only rent or deposit payments can be rejected" });
+      if (outcome.code === 409)
+        return res.status(409).json({ error: "Only pending payments can be rejected" });
+
+      if (outcome.changed && outcome.tx.tenantId) {
+        try {
+          const tenancySnap = await db().collection(COL.tenants).doc(outcome.tx.tenantId).get();
+          const tenancy = tenancySnap.exists ? (tenancySnap.data() as Tenant) : null;
+          if (tenancy?.userId) {
+            const amountStr = new Intl.NumberFormat("en-IE", {
+              style: "currency",
+              currency: outcome.tx.currency || "EUR",
+            }).format(outcome.tx.amount ?? 0);
+            await notifyUser({
+              externalUserId: tenancy.userId,
+              category: "rentPayments",
+              title: "Payment not confirmed",
+              message: `Your landlord couldn't confirm your ${amountStr} payment${
+                reason ? `: ${reason}` : "."
+              } Please check and log it again if needed.`,
+              url: "https://app.oliowallet.com/tenant",
+            });
+          }
+        } catch {
+          // Best-effort push.
+        }
+      }
+      res.json(outcome.tx);
+    } catch (err: unknown) {
+      res.status(500).json({ error: errMsg(err, "Failed to reject payment") });
+    }
+  });
+
+  // POST /api/owner/tenants/:id/record-payment — the owner records rent they
+  // received off-platform (cash / transfer) for an ACTIVE tenancy. This is the
+  // sanctioned replacement for a free-form "Rent Payment" ledger row: it tags
+  // the cycle, books it completed in one transaction with the per-cycle guard,
+  // and advances the lease so reminders stop for that period.
+  // Body: { amount: number, method?: "bank_transfer"|"cash"|"check"|"other",
+  //         paidAt?: ISO date, notes?: string }
+  app.post("/api/owner/tenants/:id/record-payment", requireAuth, async (req, res) => {
+    const { uid } = req.user!;
+    const tenancyId = reqStr(req.params.id);
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const amount = typeof body.amount === "number" && body.amount > 0 ? body.amount : 0;
+    const method: TxPaymentMethod = OFFLINE_PAYMENT_METHODS.includes(body.method as TxPaymentMethod)
+      ? (body.method as TxPaymentMethod)
+      : "bank_transfer";
+    const paidAtIso =
+      typeof body.paidAt === "string" && !isNaN(new Date(body.paidAt).getTime())
+        ? new Date(body.paidAt).toISOString()
+        : new Date().toISOString();
+    const notes = typeof body.notes === "string" ? body.notes.trim().slice(0, 500) : "";
+    if (!amount) return res.status(400).json({ error: "amount must be > 0" });
+    try {
+      const tenancySnap = await db().collection(COL.tenants).doc(tenancyId).get();
+      if (!tenancySnap.exists) return res.status(404).json({ error: "Tenancy not found" });
+      const tenancy = tenancySnap.data() as Tenant;
+      const callerPortfolio = await getPortfolio(uid);
+      if (!callerOwnsTenancy(tenancy, uid, callerPortfolio?.id))
+        return res.status(403).json({ error: "Not your tenancy" });
+      if (tenancy.status !== "active")
+        return res.status(409).json({ error: "Rent can only be recorded for an active tenancy." });
+
+      const agSnap = await db()
+        .collection(COL.agreements)
+        .where("tenantId", "==", tenancyId)
+        .where("status", "==", "active")
+        .limit(1)
+        .get();
+      const agreement = agSnap.empty ? null : (agSnap.docs[0].data() as Agreement);
+      const rentPeriod = agreement?.nextPaymentDate?.slice(0, 10);
+
+      // Same full-period rule as the tenant log: the cycle advances a whole
+      // period, so a short amount would silently skip unpaid months.
+      const periods = monthsPerPeriod(agreement?.paymentFrequency);
+      const fullPeriodCents = Math.round((tenancy.rentAmount ?? 0) * periods * 100);
+      if (fullPeriodCents > 0 && Math.round(amount * 100) < fullPeriodCents) {
+        return res.status(400).json({
+          error: `Amount is short of the rent due for this period (${new Intl.NumberFormat(
+            "en-IE",
+            { style: "currency", currency: "EUR" },
+          ).format(fullPeriodCents / 100)}). Partial payments aren't supported yet.`,
+        });
+      }
+
+      const pf = await ensurePortfolio(tenancy.ownerId);
+      const entityId = tenancy.entityId ?? (await resolvePropertyEntityId(tenancy.propertyId));
+      // Deterministic id per tenancy + cycle (or day when untagged) → a
+      // double-click books one row.
+      const key = `${tenancyId}_${rentPeriod ?? paidAtIso.slice(0, 10)}_owner`;
+      const ref = db()
+        .collection(COL.transactions)
+        .doc(`ownerrent_${createHash("sha256").update(key).digest("hex").slice(0, 24)}`);
+      const now = new Date().toISOString();
+      const tx: Transaction = {
+        id: ref.id,
+        propertyId: tenancy.propertyId,
+        unitId: tenancy.unitId,
+        tenantId: tenancyId,
+        ...(agreement?.id ? { agreementId: agreement.id } : {}),
+        ownerId: tenancy.ownerId,
+        portfolioId: pf.id,
+        ...(entityId ? { entityId } : {}),
+        name: "Rent Payment",
+        amount,
+        currency: "EUR",
+        type: "income",
+        category: "rent",
+        status: "completed",
+        timestamp: paidAtIso,
+        paymentMethod: method,
+        source: "rent",
+        viewKind: "payment",
+        workspaceId: workspaceIdFor({ portfolioId: pf.id }),
+        createdAt: now,
+        verifiedAt: now,
+        verifiedBy: uid,
+        ...(rentPeriod ? { rentPeriod } : {}),
+        ...(notes ? { notes } : {}),
+      };
+
+      const outcome = await db().runTransaction(async (t) => {
+        const existing = await t.get(ref);
+        if (existing.exists) return "dup" as const;
+        if (rentPeriod) {
+          const cycleSnap = await t.get(
+            db()
+              .collection(COL.transactions)
+              .where("tenantId", "==", tenancyId)
+              .where("rentPeriod", "==", rentPeriod),
+          );
+          if (
+            cycleSnap.docs.some((d) => {
+              const o = d.data() as Transaction;
+              return o.category === "rent" && o.status === "completed";
+            })
+          )
+            return "cycle_paid" as const;
+        }
+        t.set(ref, tx);
+        auditInTransaction(t, {
+          transactionId: ref.id,
+          action: "created",
+          actorId: uid,
+          actorType: "owner",
+          after: { status: tx.status, amount, source: tx.source },
+        });
+        return "ok" as const;
+      });
+      if (outcome === "cycle_paid")
+        return res.status(409).json({
+          error: "Rent for this period is already recorded.",
+          code: "cycle_already_paid",
+        });
+      if (outcome === "dup") return res.status(200).json({ ...tx, deduped: true });
+
+      try {
+        await advanceAgreementForPayment({ tenantId: tenancyId, paidCycle: rentPeriod });
+      } catch (err) {
+        logWarn("rent_tx.owner-record.advance-failed", {
+          tenantId: tenancyId,
+          err: String(err).slice(0, 200),
+        });
+      }
+      res.status(201).json(tx);
+    } catch (err: unknown) {
+      res.status(500).json({ error: errMsg(err, "Failed to record rent") });
+    }
+  });
+
+  // POST /api/owner/tenants/:id/deposit-return — the owner returns (all or
+  // part of) the security deposit after the tenancy ended. Books it as a
+  // completed security_deposit EXPENSE; any withheld remainder simply stays as
+  // the earlier deposit income. One return per tenancy (deterministic id).
+  // Body: { amount: number (≥ 0, ≤ deposit), notes?: string }
+  app.post("/api/owner/tenants/:id/deposit-return", requireAuth, async (req, res) => {
+    const { uid } = req.user!;
+    const tenancyId = reqStr(req.params.id);
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const amount =
+      typeof body.amount === "number" && Number.isFinite(body.amount) ? body.amount : NaN;
+    const notes = typeof body.notes === "string" ? body.notes.trim().slice(0, 500) : "";
+    if (!(amount >= 0)) return res.status(400).json({ error: "amount must be 0 or more" });
+    try {
+      const tenancySnap = await db().collection(COL.tenants).doc(tenancyId).get();
+      if (!tenancySnap.exists) return res.status(404).json({ error: "Tenancy not found" });
+      const tenancy = tenancySnap.data() as Tenant;
+      const callerPortfolio = await getPortfolio(uid);
+      if (!callerOwnsTenancy(tenancy, uid, callerPortfolio?.id))
+        return res.status(403).json({ error: "Not your tenancy" });
+      if (tenancy.status !== "expired")
+        return res.status(409).json({ error: "End the tenancy before returning the deposit." });
+
+      const agSnap = await db().collection(COL.agreements).where("tenantId", "==", tenancyId).get();
+      const deposit = agSnap.docs.reduce((s, d) => {
+        const a = d.data() as Agreement;
+        return a.status === "terminated" || a.status === "expired" ? s + (a.deposit ?? 0) : s;
+      }, 0);
+      if (amount > deposit)
+        return res
+          .status(400)
+          .json({ error: `You can return at most the deposit held (${deposit}).` });
+
+      const ref = db().collection(COL.transactions).doc(`deposit_return_${tenancyId}`);
+      const now = new Date().toISOString();
+      const entityId = tenancy.entityId ?? (await resolvePropertyEntityId(tenancy.propertyId));
+      const tx: Transaction = {
+        id: ref.id,
+        propertyId: tenancy.propertyId,
+        unitId: tenancy.unitId,
+        tenantId: tenancyId,
+        ownerId: tenancy.ownerId,
+        ...(tenancy.portfolioId ? { portfolioId: tenancy.portfolioId } : {}),
+        ...(entityId ? { entityId } : {}),
+        name:
+          amount < deposit ? "Security deposit returned (partial)" : "Security deposit returned",
+        amount,
+        currency: "EUR",
+        type: "expense",
+        category: "security_deposit",
+        status: "completed",
+        timestamp: now,
+        source: "rent",
+        viewKind: "payment",
+        ...(tenancy.portfolioId
+          ? { workspaceId: workspaceIdFor({ portfolioId: tenancy.portfolioId }) }
+          : {}),
+        createdAt: now,
+        ...(notes ? { notes } : {}),
+      };
+      const created = await db().runTransaction(async (t) => {
+        if ((await t.get(ref)).exists) return false;
+        t.set(ref, tx);
+        auditInTransaction(t, {
+          transactionId: ref.id,
+          action: "created",
+          actorId: uid,
+          actorType: "owner",
+          after: { amount, withheld: deposit - amount },
+        });
+        return true;
+      });
+      if (!created)
+        return res.status(409).json({ error: "The deposit return is already recorded." });
+      res.status(201).json({ ...tx, withheld: deposit - amount });
+    } catch (err: unknown) {
+      res.status(500).json({ error: errMsg(err, "Failed to record deposit return") });
     }
   });
 
@@ -901,7 +1240,8 @@ export function registerTenantRoutes(app: Express): void {
         .get();
       const txs = pfSnap.docs
         .map((d) => d.data() as Transaction)
-        .filter((t) => t.category === "rent");
+        // Pending deposits (booked on lease approval) are confirmed the same way.
+        .filter((t) => t.category === "rent" || t.category === "security_deposit");
       if (txs.length === 0) return res.json([]);
 
       // Join property addresses + the tenant's real name. Tenant.name holds
@@ -959,6 +1299,7 @@ export function registerTenantRoutes(app: Express): void {
           tenantName: tenantNameFor(t.tenantId),
           proofUrl: t.proofUrl ?? null,
           notes: t.notes ?? null,
+          category: t.category,
         }))
         .sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
       res.json(payload);
@@ -1265,6 +1606,7 @@ export function registerTenantRoutes(app: Express): void {
         });
       }
 
+      let approvedProperty: Property | undefined;
       // A plan downgrade can soft-deactivate the property while a lease is still
       // pending the tenant's approval. Approving would create an ACTIVE lease on
       // a hidden property (and the 30-day sweep only terminates suspended
@@ -1284,7 +1626,8 @@ export function registerTenantRoutes(app: Express): void {
           });
         }
         const propSnap = await db().collection(COL.properties).doc(agreement.propertyId).get();
-        if ((propSnap.data() as Property | undefined)?.status === "inactive") {
+        approvedProperty = propSnap.data() as Property | undefined;
+        if (approvedProperty?.status === "inactive") {
           return res.status(409).json({
             error:
               "This property is paused on the owner's current plan. The lease can't be accepted until they restore it.",
@@ -1320,18 +1663,70 @@ export function registerTenantRoutes(app: Express): void {
       // same property could otherwise both flip to active in a race (the
       // create-side guard is a pre-check and can't see a concurrent approval).
       // Block if any OTHER tenancy on this property is already active.
+      //
+      // Approval also (a) marks the property "rented" so the owner-declared
+      // occupancy stays in step with the real tenancy, and (b) books the
+      // security deposit as a PENDING income row the owner confirms via
+      // /api/owner/payment/verify — deterministic id, so a retry can't
+      // double-book it.
+      const depositAmount = agreement.deposit ?? 0;
+      const depositRef = db().collection(COL.transactions).doc(`deposit_${agreementId}`);
+      const entityId =
+        agreement.entityId ??
+        tenancy.entityId ??
+        (approvedProperty?.ownershipType === "company" ? approvedProperty.entityId : undefined);
       let blockedByOccupancy = false;
       await db().runTransaction(async (t) => {
         if (action === "approve") {
-          const activeSnap = await t.get(
-            db()
-              .collection(COL.tenants)
-              .where("propertyId", "==", agreement.propertyId)
-              .where("status", "==", "active"),
-          );
+          const [activeSnap, depositSnap] = await Promise.all([
+            t.get(
+              db()
+                .collection(COL.tenants)
+                .where("propertyId", "==", agreement.propertyId)
+                .where("status", "==", "active"),
+            ),
+            t.get(depositRef),
+          ]);
           if (activeSnap.docs.some((d) => d.id !== agreement.tenantId)) {
             blockedByOccupancy = true;
             return;
+          }
+          t.set(
+            db().collection(COL.properties).doc(agreement.propertyId),
+            { occupancyStatus: "rented" },
+            { merge: true },
+          );
+          if (depositAmount > 0 && !depositSnap.exists) {
+            const portfolioId = agreement.portfolioId ?? tenancy.portfolioId;
+            const depositTx: Transaction = {
+              id: depositRef.id,
+              propertyId: agreement.propertyId,
+              unitId: agreement.unitId,
+              tenantId: agreement.tenantId,
+              agreementId,
+              ownerId: agreement.ownerId,
+              ...(portfolioId ? { portfolioId } : {}),
+              ...(entityId ? { entityId } : {}),
+              name: "Security deposit",
+              amount: depositAmount,
+              currency: "EUR",
+              type: "income",
+              category: "security_deposit",
+              status: "pending",
+              timestamp: now,
+              source: "rent",
+              viewKind: "payment",
+              ...(portfolioId ? { workspaceId: workspaceIdFor({ portfolioId }) } : {}),
+              createdAt: now,
+            };
+            t.set(depositRef, depositTx);
+            auditInTransaction(t, {
+              transactionId: depositRef.id,
+              action: "created",
+              actorId: "system",
+              actorType: "system",
+              after: { status: "pending", amount: depositAmount, source: "rent" },
+            });
           }
         }
         t.set(agreementRef, agreementPatch, { merge: true });

@@ -53,6 +53,18 @@ function pickDefinedBanking(src: Partial<PortfolioBanking>): PortfolioBanking {
 // would return an arbitrary one of two matches). The ownerId check guards
 // against a stale link (e.g. after an ownership transfer rewires the
 // portfolio to a new owner); on any mismatch we fall back to the query.
+// Owner-self gate for tenancy mutations. Keys on the STABLE portfolio id when
+// the tenancy carries one (so it follows an owner transfer, like payment
+// verify), falling back to ownerId for legacy unstamped rows.
+export function callerOwnsTenancy(
+  tenancy: { portfolioId?: string; ownerId: string },
+  uid: string,
+  callerPortfolioId: string | undefined,
+): boolean {
+  if (tenancy.portfolioId) return !!callerPortfolioId && callerPortfolioId === tenancy.portfolioId;
+  return tenancy.ownerId === uid;
+}
+
 export async function getPortfolio(ownerId: string): Promise<Portfolio | null> {
   const userSnap = await db().collection(COL.users).doc(ownerId).get();
   const refId = userSnap.exists ? (userSnap.data() as User).portfolioRef : undefined;

@@ -43,6 +43,7 @@ const store: Record<string, Map<string, Row>> = {
   properties: new Map(),
   transactions: new Map(),
   agreements: new Map(),
+  transactionAudit: new Map(),
 };
 
 // Captured notifyUser payloads, so we can assert who got told what (and
@@ -262,6 +263,27 @@ function respond(action: unknown, id = "ag-1") {
 // ── approve ────────────────────────────────────────────────────────────
 
 describe("POST /api/tenant/agreements/:id/respond — approve", () => {
+  it("marks the property rented and books the deposit as a pending row (once)", async () => {
+    seedPendingLease({ deposit: 2400, portfolioId: "pf-1" });
+    expect((await respond("approve")).status).toBe(200);
+    expect(store.properties.get("prop-1")?.occupancyStatus).toBe("rented");
+    const dep = store.transactions.get("deposit_ag-1");
+    expect(dep?.category).toBe("security_deposit");
+    expect(dep?.status).toBe("pending");
+    expect(dep?.amount).toBe(2400);
+    // Re-approve is idempotent — still one deposit row.
+    await respond("approve");
+    expect(
+      Array.from(store.transactions.keys()).filter((k) => k.startsWith("deposit_")),
+    ).toHaveLength(1);
+  });
+
+  it("books no deposit row when the lease has no deposit", async () => {
+    seedPendingLease();
+    await respond("approve");
+    expect(store.transactions.has("deposit_ag-1")).toBe(false);
+  });
+
   it("activates the agreement AND the tenancy in lockstep, stamping acceptedAt", async () => {
     seedPendingLease();
     const res = await respond("approve");

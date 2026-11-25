@@ -19,6 +19,7 @@ import { notifyUser } from "./push";
 import { ensurePortfolio } from "./portfolioBanking";
 import { advanceAgreementForPayment, advanceMonths } from "./rentCycle";
 import { recordAudit } from "./transactionLedger";
+import { resolvePropertyEntityId } from "./propertyOwnership";
 import { workspaceIdFor } from "../../shared/transactions";
 
 // Advance a YYYY-MM-DD date by one month (month-end safe — Jan 31 → Feb 28/29).
@@ -152,6 +153,11 @@ export async function recordRentTransactionFromSession(
       ? session.payment_intent
       : (session.payment_intent?.id ?? undefined);
 
+  // Company that holds the property, so company-owned rent shows in that
+  // company's ledger. Best-effort lookup (never throws).
+  const entityId =
+    session.metadata?.entityId || (await resolvePropertyEntityId(session.metadata?.propertyId));
+
   const tx: Transaction = {
     id: ref.id,
     propertyId: session.metadata?.propertyId,
@@ -160,6 +166,7 @@ export async function recordRentTransactionFromSession(
     ...(agreementId ? { agreementId } : {}),
     ownerId: session.metadata?.ownerId,
     ...(portfolioId ? { portfolioId } : {}),
+    ...(entityId ? { entityId } : {}),
     ...(paymentIntentId ? { stripePaymentIntentId: paymentIntentId } : {}),
     name: "Rent Payment",
     amount: grossCents / 100,

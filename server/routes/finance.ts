@@ -32,6 +32,7 @@ import {
 } from "../../shared/firestore-schema";
 import { prepaidRentActivityRow } from "../services/prepaidActivity";
 import { recordAudit } from "../services/transactionLedger";
+import { companyEntityIdOf } from "../services/propertyOwnership";
 import { workspaceIdFor } from "../../shared/transactions";
 
 const VALID_TX_TYPES: TransactionType[] = ["income", "expense", "neutral"];
@@ -265,11 +266,30 @@ export function registerFinanceRoutes(app: Express): void {
     if (!name) return res.status(400).json({ error: "name is required" });
 
     try {
+      // Company that holds the property — inherited onto property-anchored rows
+      // when the caller didn't pick an entity, so company-owned property costs
+      // land in that company's ledger too.
+      let propertyEntityId: string | undefined;
       if (propertyId) {
         const propSnap = await db().collection(COL.properties).doc(propertyId).get();
         if (!propSnap.exists) return res.status(404).json({ error: "Property not found" });
         const property = propSnap.data() as Property;
         if (property.ownerId !== uid) return res.status(403).json({ error: "Forbidden" });
+        propertyEntityId = companyEntityIdOf(property);
+        // Long-term rent must go through the tenancy payment flow (log/verify,
+        // card, or POST /api/owner/tenants/:id/record-payment), which tags the
+        // cycle and advances the lease. A free-form rent row here does neither,
+        // so reminders keep firing and a later real payment double-counts.
+        // Short-term lets have no lease, so they're the one case recorded here.
+        if (category === "rent" && property.profile?.use !== "short_term") {
+          return res.status(400).json({
+            error:
+              "Record long-term rent from the tenant's page so the lease schedule stays in sync.",
+            code: "rent_via_tenancy",
+          });
+        }
+      } else if (category === "rent") {
+        return res.status(400).json({ error: "Rent must be recorded against a property" });
       }
       if (entityId) {
         const entSnap = await db().collection(COL.entities).doc(entityId).get();
@@ -291,7 +311,7 @@ export function registerFinanceRoutes(app: Express): void {
       const tx: Transaction = {
         id: ref.id,
         ...(propertyId ? { propertyId } : {}),
-        ...(entityId ? { entityId } : {}),
+        ...(entityId || propertyEntityId ? { entityId: entityId || propertyEntityId } : {}),
         ownerId: uid,
         ...(pf ? { portfolioId: pf.id } : {}),
         workspaceId: workspaceIdFor({
@@ -440,6 +460,29 @@ export function registerFinanceRoutes(app: Express): void {
           }
         }
         updates.propertyId = propertyId;
+      }
+
+      // Same rule as POST: a manual rent row is only allowed on a short-term
+      // let. Re-checked whenever the result would be rent (category switched to
+      // rent, or a rent row moved to another property).
+      const finalCategory = (updates.category as TransactionCategory | undefined) ?? tx.category;
+      const finalPropertyId = (updates.propertyId as string | undefined) ?? tx.propertyId;
+      // (The edit form resubmits every field, so compare against the stored
+      // values — an unchanged legacy rent row stays editable.)
+      const becameRent = finalCategory === "rent" && tx.category !== "rent";
+      const rentMoved = finalCategory === "rent" && finalPropertyId !== tx.propertyId;
+      if (becameRent || rentMoved) {
+        const pSnap = finalPropertyId
+          ? await db().collection(COL.properties).doc(finalPropertyId).get()
+          : null;
+        const p = pSnap?.exists ? (pSnap.data() as Property) : null;
+        if (p?.profile?.use !== "short_term") {
+          return res.status(400).json({
+            error:
+              "Record long-term rent from the tenant's page so the lease schedule stays in sync.",
+            code: "rent_via_tenancy",
+          });
+        }
       }
 
       if (Object.keys(updates).length === 0) {

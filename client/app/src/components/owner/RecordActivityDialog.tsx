@@ -68,7 +68,10 @@ type UiCategory = {
 };
 
 const CATEGORIES: UiCategory[] = [
-  { id: "rent", label: "Rent Payment", type: "income", category: "rent", icon: Home },
+  // Long-term rent is recorded from the tenant (Tenants → Record rent) so the
+  // lease schedule advances; the server only accepts a manual rent row for a
+  // short-term let.
+  { id: "rent", label: "Short-term Rental", type: "income", category: "rent", icon: Home },
   {
     id: "deposit",
     label: "Security Deposit",

@@ -18,7 +18,11 @@ import { isPublicHttpsUrl } from "../services/safeRedirect";
 import { sanitizeText } from "../services/unicodeSanitize";
 import { hasPortfolioPrivilege } from "../services/portfolioPrivilege";
 import { ensurePortfolio } from "../services/portfolioBanking";
-import { loadOwnedEntity, resolvePropertyOwnership } from "../services/propertyOwnership";
+import {
+  countsTowardUnitCap,
+  loadOwnedEntity,
+  resolvePropertyOwnership,
+} from "../services/propertyOwnership";
 import { propertyHasActiveTenancy } from "../services/occupancy";
 import { prepaidRentActivityRow } from "../services/prepaidActivity";
 import { reqStr } from "../util";
@@ -192,7 +196,9 @@ export function registerPropertyRoutes(app: Express): void {
       // races between this point and the write would otherwise both pass
       // and both create properties.
       const capInfo = await resolveUnitCap(uid);
-      if (capInfo.cap !== null && capInfo.used >= capInfo.cap) {
+      // A Building shell takes no slot, so it can be created at the cap; its
+      // units are gated by POST /api/properties/:id/units.
+      if (body.propertyType !== "Building" && capInfo.cap !== null && capInfo.used >= capInfo.cap) {
         return res.status(402).json({
           error: "Upgrade required",
           privilege: "units.unlimited",
@@ -377,10 +383,10 @@ export function registerPropertyRoutes(app: Express): void {
         const q = await t.get(
           db().collection(COL.properties).where("portfolioId", "==", portfolio.id),
         );
-        const activeCount = q.docs.filter(
-          (d) => (d.data() as Property).status !== "inactive",
-        ).length;
-        if (activeCount >= capInfo.cap) return { exceeded: true, used: activeCount };
+        const activeCount = q.docs.filter((d) => countsTowardUnitCap(d.data() as Property)).length;
+        // A new Building shell doesn't take a slot (its units do).
+        if (countsTowardUnitCap(property) && activeCount >= capInfo.cap)
+          return { exceeded: true, used: activeCount };
         t.set(ref, property);
         return { exceeded: false, used: activeCount + 1 };
       });
@@ -474,7 +480,7 @@ export function registerPropertyRoutes(app: Express): void {
           const q = await t.get(
             db().collection(COL.properties).where("portfolioId", "==", portfolioId),
           );
-          const active = q.docs.filter((d) => (d.data() as Property).status !== "inactive").length;
+          const active = q.docs.filter((d) => countsTowardUnitCap(d.data() as Property)).length;
           if (active + units.length > capInfo.cap) return { exceeded: true, used: active };
         }
         for (const u of units) t.set(db().collection(COL.properties).doc(u.id), u);

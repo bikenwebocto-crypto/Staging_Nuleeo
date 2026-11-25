@@ -22,8 +22,14 @@ import { applyRentChange } from "../services/rentChange";
 import { advanceMonths, computeArrears } from "../services/rentCycle";
 import { nextIncreaseDateOnOrAfter } from "../services/leaseDates";
 import { authorizePortfolioRead, resolveOwnerScope } from "../services/ownerScope";
-import { ensurePortfolio, loadPortfolioBanking } from "../services/portfolioBanking";
+import {
+  callerOwnsTenancy,
+  ensurePortfolio,
+  getPortfolio,
+  loadPortfolioBanking,
+} from "../services/portfolioBanking";
 import { occupiedPropertyIds } from "../services/occupancy";
+import { companyEntityIdOf } from "../services/propertyOwnership";
 import { reqStr } from "../util";
 import {
   sendTenantAgreementInviteEmail,
@@ -882,6 +888,14 @@ export function registerPortfolioRoutes(
             .status(400)
             .json({ error: "This property isn't set up for renting, so it can't have a tenant." });
         }
+        // A Building is a container for its units; leasing the shell as well
+        // as each unit would double-count rent and occupancy. Buildings carry
+        // no propertyUse, so the check above lets them through — block here.
+        if (property.propertyType === "Building") {
+          return res
+            .status(400)
+            .json({ error: "Add tenants to the building's units, not the building itself." });
+        }
 
         // One user can't be both sides of the same agreement.
         try {
@@ -973,6 +987,7 @@ export function registerPortfolioRoutes(
         // the create transaction below — ensurePortfolio runs its own
         // transaction and can't nest inside another one.
         const portfolio = await ensurePortfolio(callerUid);
+        const entityId = companyEntityIdOf(property);
 
         const tenantDoc: Tenant = {
           id: tenantRef.id,
@@ -984,6 +999,7 @@ export function registerPortfolioRoutes(
           propertyId,
           ownerId: callerUid,
           portfolioId: portfolio.id,
+          ...(entityId ? { entityId } : {}),
           rentAmount,
           status: tenantUid ? "pending" : "invited",
           ...(effectiveNextPaymentDate ? { nextPayment: effectiveNextPaymentDate } : {}),
@@ -1013,6 +1029,7 @@ export function registerPortfolioRoutes(
           propertyId,
           ownerId: callerUid,
           portfolioId: portfolio.id,
+          ...(entityId ? { entityId } : {}),
           agreementValue,
           startDate,
           endDate,
@@ -1557,7 +1574,9 @@ export function registerPortfolioRoutes(
         return res.status(404).json({ error: "Tenancy not found" });
       }
       const tenancy = snap.data() as Tenant;
-      if (tenancy.ownerId !== uid) {
+      // Portfolio-keyed gate (survives an owner transfer), same as payment
+      // verify; falls back to ownerId for legacy unstamped tenancies.
+      if (!callerOwnsTenancy(tenancy, uid, (await getPortfolio(uid))?.id)) {
         return res.status(403).json({ error: "Not your tenancy" });
       }
       if (tenancy.status === "expired") {
@@ -1585,7 +1604,7 @@ export function registerPortfolioRoutes(
         .get();
 
       let outstandingTotal = 0;
-      let agreementsTouched = false;
+      let depositHeld = 0;
       const batch = db().batch();
       agreementsSnap.docs.forEach((d) => {
         const ag = d.data() as Agreement;
@@ -1598,6 +1617,7 @@ export function registerPortfolioRoutes(
             paymentDayOfMonth: ag.paymentDayOfMonth,
           });
           outstandingTotal += arrears.amount;
+          depositHeld += ag.deposit ?? 0;
           batch.set(
             d.ref,
             {
@@ -1628,20 +1648,20 @@ export function registerPortfolioRoutes(
               { merge: true },
             );
           }
-          agreementsTouched = true;
         } else if (ag.status === "pending_tenant") {
           // Cancel the unaccepted invite — no schedule, so no arrears.
           batch.set(d.ref, { status: "declined", declinedAt: now }, { merge: true });
-          agreementsTouched = true;
         }
         // draft / expired / terminated / declined are already terminal — skip.
       });
-      if (agreementsTouched) await batch.commit();
 
       // Clear the due date so an ended tenancy stops surfacing a phantom "next
       // payment" (L-15), and record any preserved arrear so the ex-tenant can
-      // still settle it and the owner can still see it.
-      await ref.set(
+      // still settle it and the owner can still see it. Committed in the SAME
+      // batch as the agreement updates so a failure can't leave the lease
+      // terminated while the tenancy still reads active (or vice versa).
+      batch.set(
+        ref,
         {
           status: "expired",
           endedAt: now,
@@ -1650,6 +1670,37 @@ export function registerPortfolioRoutes(
         },
         { merge: true },
       );
+
+      // Occupancy: mark the property vacant unless another tenancy on it is
+      // still active (a pending invite doesn't occupy it).
+      const otherActive = await db()
+        .collection(COL.tenants)
+        .where("propertyId", "==", tenancy.propertyId)
+        .where("status", "==", "active")
+        .get();
+      if (!otherActive.docs.some((d) => d.id !== tenancyId)) {
+        batch.set(
+          db().collection(COL.properties).doc(tenancy.propertyId),
+          { occupancyStatus: "vacant" },
+          { merge: true },
+        );
+      }
+      await batch.commit();
+
+      // Offline rent the tenant logged but the owner hasn't confirmed yet. Left
+      // pending on purpose (the money may really have arrived); surfaced so the
+      // UI can prompt the owner to verify or reject each one.
+      let pendingPayments = 0;
+      try {
+        const pendSnap = await db()
+          .collection(COL.transactions)
+          .where("tenantId", "==", tenancyId)
+          .where("status", "==", "pending")
+          .get();
+        pendingPayments = pendSnap.size;
+      } catch (err) {
+        logWarn("tenancy_end.pending-count-failed", { err: String(err).slice(0, 200) });
+      }
 
       // Revoke the ex-tenant's access to any documents the owner
       // attached to this tenancy. firebaseStorageDownloadTokens stay
@@ -1706,7 +1757,9 @@ export function registerPortfolioRoutes(
         endedAt: now,
         outstandingBalance: outstandingTotal,
       };
-      res.json(updated);
+      // depositHeld: deposits on the leases just closed, for the owner to
+      // return via POST /api/owner/tenants/:id/deposit-return.
+      res.json({ ...updated, depositHeld, pendingPayments });
     } catch (err: unknown) {
       res.status(500).json({ error: errMsg(err, "Failed to end tenancy") });
     }
@@ -1724,7 +1777,7 @@ export function registerPortfolioRoutes(
     const snap = await ref.get();
     if (!snap.exists) return { ok: false as const, status: 404, error: "Tenant not found" };
     const tenancy = snap.data() as Tenant;
-    if (tenancy.ownerId !== uid)
+    if (!callerOwnsTenancy(tenancy, uid, (await getPortfolio(uid))?.id))
       return { ok: false as const, status: 403, error: "Not your tenant" };
     const propSnap = await db().collection(COL.properties).doc(tenancy.propertyId).get();
     const property = propSnap.exists ? (propSnap.data() as Property) : undefined;
@@ -1826,6 +1879,7 @@ export function registerPortfolioRoutes(
     try {
       const ref = db().collection(COL.tenants).doc(tenancyId);
       const now = new Date().toISOString();
+      const callerPortfolioId = (await getPortfolio(uid))?.id;
 
       // Atomic + idempotent. The old code read outstandingBalance, then wrote an
       // auto-id income row in a plain BATCH — so two concurrent settle requests
@@ -1842,7 +1896,7 @@ export function registerPortfolioRoutes(
         const snap = await t.get(ref);
         if (!snap.exists) return { code: 404 as const };
         const tenancy = snap.data() as Tenant;
-        if (tenancy.ownerId !== uid) return { code: 403 as const };
+        if (!callerOwnsTenancy(tenancy, uid, callerPortfolioId)) return { code: 403 as const };
         const outstanding = tenancy.outstandingBalance ?? 0;
         if (outstanding <= 0) return { code: 200 as const, tenancy, settled: false };
 
@@ -1879,6 +1933,7 @@ export function registerPortfolioRoutes(
           ...(withBalance[0]?.id ? { agreementId: withBalance[0].id } : {}),
           ownerId: uid,
           ...(tenancy.portfolioId ? { portfolioId: tenancy.portfolioId } : {}),
+          ...(tenancy.entityId ? { entityId: tenancy.entityId } : {}),
           name: "Final balance settlement",
           amount: outstanding,
           currency: "EUR",

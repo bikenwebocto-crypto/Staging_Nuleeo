@@ -40,6 +40,8 @@ const store: Record<string, Map<string, Row>> = {
   // resolves it via loadPortfolioBanking(ownerId) → a portfolios query, so these
   // tests seed banking on a PORTFOLIO doc (see seedOwnerCreatedLease).
   portfolios: new Map(),
+  // Verify/reject write their audit entry inside the transaction.
+  transactionAudit: new Map(),
 };
 
 let stripeCreateArgs: unknown[] = [];
@@ -612,6 +614,47 @@ describe("POST /api/owner/payment/verify/:id — offline rent confirmation", () 
       nextPaymentDate,
     });
   }
+
+  it("reject: flips pending → rejected and does NOT advance the cycle", async () => {
+    seedPendingOfflineRent("2026-06-01");
+    const res = await request(makeApp())
+      .post("/api/owner/payment/reject/offline_x")
+      .send({ reason: "Not on my statement" });
+    expect(res.status).toBe(200);
+    expect(store.transactions.get("offline_x")?.status).toBe("rejected");
+    expect(store.transactions.get("offline_x")?.rejectReason).toBe("Not on my statement");
+    expect(store.agreements.get("ag-1")?.nextPaymentDate).toBe("2026-06-01");
+    // A rejected row can't be verified afterwards.
+    const v = await request(makeApp()).post("/api/owner/payment/verify/offline_x");
+    expect(v.status).toBe(409);
+  });
+
+  it("reject: 409s on a completed payment", async () => {
+    seedPendingOfflineRent("2026-06-01");
+    store.transactions.set("offline_x", {
+      ...(store.transactions.get("offline_x") as Row),
+      status: "completed",
+    });
+    const res = await request(makeApp()).post("/api/owner/payment/reject/offline_x").send({});
+    expect(res.status).toBe(409);
+  });
+
+  it("verifies a pending security deposit without advancing the rent cycle", async () => {
+    seedPendingOfflineRent("2026-06-01");
+    store.transactions.set("deposit_ag-1", {
+      id: "deposit_ag-1",
+      tenantId: "ten-1",
+      portfolioId: "pf-owner",
+      category: "security_deposit",
+      status: "pending",
+      amount: 2400,
+      currency: "EUR",
+    });
+    const res = await request(makeApp()).post("/api/owner/payment/verify/deposit_ag-1");
+    expect(res.status).toBe(200);
+    expect(store.transactions.get("deposit_ag-1")?.status).toBe("completed");
+    expect(store.agreements.get("ag-1")?.nextPaymentDate).toBe("2026-06-01");
+  });
 
   it("flips the tx to completed AND advances the agreement's nextPaymentDate by one month", async () => {
     seedPendingOfflineRent("2026-06-01");

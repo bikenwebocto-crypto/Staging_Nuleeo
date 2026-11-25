@@ -70,6 +70,8 @@ function ordinal(n: number) {
 // not a building that is split into units (tenants go on the units).
 function isRentable(p: OwnerProperty, all: OwnerProperty[]): boolean {
   if (p.status === "inactive") return false;
+  // The server refuses a tenant on a Building shell even before units exist.
+  if (p.propertyType === "Building") return false;
   if (p.propertyUse === "hold" || p.propertyUse === "owner_occupied") return false;
   if (p.tenancyState && p.tenancyState !== "vacant") return false;
   if (p.occupied) return false;
